@@ -55,6 +55,14 @@ def init_rag():
     # Store in Chroma memory (or persist to disk with persist_directory="./chroma_db")
     persist_dir = "./chroma_db"
     
+    if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
+        import shutil
+        tmp_dir = "/tmp/chroma_db"
+        if not os.path.exists(tmp_dir) and os.path.exists(persist_dir):
+            print(f"Copying {persist_dir} to {tmp_dir} for write access on Vercel...")
+            shutil.copytree(persist_dir, tmp_dir)
+        persist_dir = tmp_dir
+
     if os.path.exists(persist_dir):
         print("Loading existing Chroma DB...")
         vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
