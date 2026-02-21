@@ -1,0 +1,97 @@
+[
+  {
+    "ticket_id": "DP-INC-9001",
+    "timestamp": "2026-02-21T13:30:00Z",
+    "status": "predicted_failure",
+    "urgency": "high",
+    "station_info": {
+      "charger_id": "STX-88",
+      "location": "Downtown Metro Hub, Station A",
+      "charger_type": "ABB_Terra_54",
+      "model": "ABB Terra 54 DC Fast Charger"
+    },
+    "prediction_details": {
+      "failing_component": "Cooling",
+      "expected_error_code": "ERR-0X1A",
+      "probability_score": 0.92,
+      "time_to_failure_hours": 12.5,
+      "telemetry_context": "Coolant pump RPM has dropped by 18% over the last 48 hours while stator temp has increased by 14 degrees Celsius during peak charging sessions."
+    }
+  },
+  {
+    "ticket_id": "DP-INC-9002",
+    "timestamp": "2026-02-21T13:45:00Z",
+    "status": "predicted_failure",
+    "urgency": "medium",
+    "station_info": {
+      "charger_id": "CP-402",
+      "location": "Westside Corporate Park, Spot 4",
+      "charger_type": "ChargePoint_CT4000",
+      "model": "ChargePoint CT4000 Series (Level 2)"
+    },
+    "prediction_details": {
+      "failing_component": "Payment",
+      "expected_error_code": "CP-ERR-RFID",
+      "probability_score": 0.85,
+      "time_to_failure_hours": 48.0,
+      "telemetry_context": "RFID authentication latency has spiked from 150ms to >2000ms. 3 session initiation timeouts in the last 12 hours."
+    }
+  },
+  {
+    "ticket_id": "DP-INC-9003",
+    "timestamp": "2026-02-21T14:00:00Z",
+    "status": "predicted_failure",
+    "urgency": "critical",
+    "station_info": {
+      "charger_id": "TSLA-V3-1A",
+      "location": "Highway 101 Rest Stop, Stall 1A",
+      "charger_type": "Tesla_Supercharger_V3",
+      "model": "Tesla Supercharger V3 (250kW)"
+    },
+    "prediction_details": {
+      "failing_component": "Thermal",
+      "expected_error_code": "VC-STC-TMP",
+      "probability_score": 0.98,
+      "time_to_failure_hours": 2.0,
+      "telemetry_context": "Thermistor on NACS cable handle is reporting erratic non-linear spikes up to 90C. Potential thermal runaway or sensor short circuit."
+    }
+  },
+  {
+    "ticket_id": "DP-INC-9004",
+    "timestamp": "2026-02-21T14:15:00Z",
+    "status": "predicted_failure",
+    "urgency": "medium",
+    "station_info": {
+      "charger_id": "TRIT-50-B",
+      "location": "City Library Parking",
+      "charger_type": "Tritium_Veefil_RT",
+      "model": "Tritium Veefil-RT 50kW"
+    },
+    "prediction_details": {
+      "failing_component": "Power",
+      "expected_error_code": "TR-PWR-ISO",
+      "probability_score": 0.88,
+      "time_to_failure_hours": 72.0,
+      "telemetry_context": "Isolation monitor reading has gradually decreased from >500kOhm to 120kOhm over 2 weeks. Insulation degradation detected on DC bus."
+    }
+  },
+  {
+    "ticket_id": "DP-INC-9005",
+    "timestamp": "2026-02-21T14:30:00Z",
+    "status": "offline",
+    "urgency": "critical",
+    "station_info": {
+      "charger_id": "STX-91",
+      "location": "Downtown Metro Hub, Station B",
+      "charger_type": "ABB_Terra_54",
+      "model": "ABB Terra 54 DC Fast Charger"
+    },
+    "prediction_details": {
+      "failing_component": "Payment",
+      "expected_error_code": "ERR-PAY-01",
+      "probability_score": 1.0,
+      "time_to_failure_hours": 0,
+      "telemetry_context": "Unit completely dropped off the cellular network at 13:10Z. Last known state indicated a Nayax offline error."
+    }
+  }
+]
