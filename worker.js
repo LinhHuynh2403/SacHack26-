@@ -11,9 +11,8 @@ class Florence2Pipeline {
         if (this.instance === null) {
             // Check hardware capabilities to determine model size
             const cores = navigator.hardwareConcurrency || 4;
-            // florence-2-base works robustly in the browser. 
-            // We use standard base as default here to avoid memory crashes on low-end
-            const model_id = cores >= 8 ? 'Xenova/florence-2-large' : 'Xenova/florence-2-base';
+            // Use onnx-community models for Florence-2
+            const model_id = cores >= 8 ? 'onnx-community/Florence-2-large-ft' : 'onnx-community/Florence-2-base-ft';
 
             this.instance = Promise.all([
                 Florence2ForConditionalGeneration.from_pretrained(model_id, {
