@@ -51,11 +51,13 @@ self.addEventListener('message', async (event) => {
             // Load the image from the data URL
             const rawImage = await RawImage.fromURL(image);
 
-            // We use the <MORE_DETAILED_CAPTION> prompt to get rich scene descriptions
-            const task = '<MORE_DETAILED_CAPTION>';
+            // We use the <VQA> prompt to ask specific questions about the dental x-ray
+            const task = '<VQA>';
+            const prompt = 'What is the primary condition shown in this dental x-ray? Choose from: Cavity, Fillings, Impacted Tooth, Implant, or Normal.';
+            const text = task + ' ' + prompt;
 
             // Prepare inputs for the model
-            const inputs = await processor(rawImage, task);
+            const inputs = await processor(rawImage, text);
 
             // Generate the output
             const outputs = await model.generate({
@@ -67,7 +69,7 @@ self.addEventListener('message', async (event) => {
             const decoded = processor.batch_decode(outputs, { skip_special_tokens: false })[0];
 
             // Post-process the output string (strip prompt and EOS tokens)
-            const cleanOutput = decoded.replace(task, '').replace('</s>', '').replace('<s>', '').trim();
+            const cleanOutput = decoded.replace(text, '').replace(task, '').replace('</s>', '').replace('<s>', '').trim();
 
             self.postMessage({
                 status: 'complete',
