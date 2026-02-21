@@ -35,7 +35,7 @@ ALERTS_FILE = os.path.join(DATA_DIR, "telemetry_alerts.json")
 # The user requested Gemini 3.1 Pro or Gemini 3 flash.
 # Note: Adjust the model string depending on exactly which version
 # is available to your current Google API Key tier.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 # Global variables to hold our RAG chain
 vector_store = None
@@ -45,24 +45,32 @@ def init_rag():
     global vector_store, rag_chain
     print("Initializing RAG Pipeline...")
 
-    # 1. Load the 24 dummy manuals
-    loader = DirectoryLoader(MANUALS_DIR, glob="**/*.md", loader_cls=TextLoader)
-    docs = loader.load()
-    print(f"Loaded {len(docs)} manuals.")
-
-    # 2. Split documents into chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    splits = text_splitter.split_documents(docs)
-
     # 3. Create Vector Store (using Google's Embeddings)
     if "GOOGLE_API_KEY" not in os.environ:
         print("WARNING: GOOGLE_API_KEY not found in environment. RAG will not function.")
         return
 
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     
     # Store in Chroma memory (or persist to disk with persist_directory="./chroma_db")
-    vector_store = Chroma.from_documents(documents=splits, embedding=embeddings)
+    persist_dir = "./chroma_db"
+    
+    if os.path.exists(persist_dir):
+        print("Loading existing Chroma DB...")
+        vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+    else:
+        print(f"Creating new Chroma DB in {persist_dir}...")
+        
+        # 1. Load the 24 dummy manuals
+        loader = DirectoryLoader(MANUALS_DIR, glob="**/*.md", loader_cls=TextLoader)
+        docs = loader.load()
+        print(f"Loaded {len(docs)} manuals.")
+
+        # 2. Split documents into chunks
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+        splits = text_splitter.split_documents(docs)
+        
+        vector_store = Chroma.from_documents(documents=splits, embedding=embeddings, persist_directory=persist_dir)
 
     # 4. Create the LLM (Gemini Flash/Pro)
     llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
