@@ -466,6 +466,8 @@ def chat_with_copilot(request: ChatRequest):
             ticket_id=request.ticket_id,
             history_length=len(history),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
