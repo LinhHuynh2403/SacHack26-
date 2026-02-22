@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useParams, useSearchParams, useNavigate } from "react-router";
 import { ChatMessage, Ticket, BackendTicket } from "../types";
-import { sendChatMessage, fetchTicket, fetchChatHistory, fetchChecklist } from "../api";
+import { sendChatMessage, fetchTicket, fetchChatHistory } from "../api";
 import { mapBackendTicket } from "../mapper";
 import {
   ArrowLeft, Send, Mic, MicOff, Camera, X, RefreshCw, ThumbsUp, ThumbsDown
@@ -50,6 +50,13 @@ export function ChatInterface() {
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
       const historyData = await fetchChatHistory(ticketId, stepIdx);
 
+      const greetingMessage: FixityMessage = {
+        id: 'greeting-1',
+        role: 'assistant',
+        content: "Hi, I'm fixity, you AI assistant. How can I help you?",
+        timestamp: new Date().toISOString()
+      };
+
       if (historyData.history && historyData.history.length > 0) {
         const mappedMessages: FixityMessage[] = historyData.history.map((m: any, idx: number) => ({
           id: `history-${idx}`,
@@ -57,24 +64,9 @@ export function ChatInterface() {
           content: m.content,
           timestamp: m.timestamp,
         }));
-        setMessages(mappedMessages);
+        setMessages([greetingMessage, ...mappedMessages]);
       } else {
-        // Initial fixity greeting
-        let greetingText = "Hi, I’m fixity, your AI assistant. How can I help you?";
-
-        const checklistData = await fetchChecklist(ticketId);
-        const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
-
-        if (currentStep && stepIdx !== undefined) {
-          greetingText = `Hi, I’m fixity, your AI assistant. I see you are on Step ${stepIdx + 1}: "${currentStep.task}". How can I help you with this?`;
-        }
-
-        setMessages([{
-          id: '1',
-          role: 'assistant',
-          content: greetingText,
-          timestamp: new Date().toISOString()
-        }]);
+        setMessages([greetingMessage]);
       }
     } catch (err: any) {
       console.error("Failed to fetch ticket or history:", err);
