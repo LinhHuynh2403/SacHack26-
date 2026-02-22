@@ -1,4 +1,11 @@
 import os
+import sys
+
+# SQLite hack for ChromaDB on Vercel
+if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -106,9 +113,6 @@ def init_rag():
 
 # Note for Hackathon: Normally we use lifespan events, 
 # but for a quick script startup event is fine.
-@app.on_event("startup")
-async def startup_event():
-    init_rag()
 
 
 # ---------- API ROUTES ----------
@@ -123,6 +127,23 @@ def get_tickets():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load alerts: {str(e)}")
 
+@app.get("/api/debug")
+def debug_info():
+    import sqlite3
+    try:
+        import chromadb
+        chroma_version = chromadb.__version__
+    except Exception as e:
+        chroma_version = str(e)
+    
+    return {
+        "python_version": sys.version,
+        "sqlite3_version": sqlite3.sqlite_version,
+        "vercel_env": os.environ.get("VERCEL_ENV"),
+        "chroma_version": chroma_version,
+        "tmp_contents": os.listdir("/tmp") if os.path.exists("/tmp") else []
+    }
+
 class ChatRequest(BaseModel):
     message: str
     ticket_id: str
@@ -130,6 +151,13 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 def chat_with_copilot(request: ChatRequest):
     """Answers a technician's question using the RAG manuals."""
+    global rag_chain
+    if not rag_chain:
+        try:
+            init_rag()
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to initialize RAG: {str(e)}")
+            
     if not rag_chain:
         raise HTTPException(status_code=500, detail="RAG Pipeline not initialized (Check GOOGLE_API_KEY)")
     
