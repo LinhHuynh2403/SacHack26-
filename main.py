@@ -106,6 +106,7 @@ DATA_DIR = "dummy_data"
 MANUALS_DIR = os.path.join(DATA_DIR, "manuals")
 ALERTS_FILE = os.path.join(DATA_DIR, "telemetry_alerts.json")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+ADMIN_SECRET = os.getenv("ADMIN_SECRET", "sachack2026")
 CHROMA_PERSIST_DIR = "./chroma_db"
 
 # Global RAG variables — we store vector_store + llm separately instead of
@@ -759,6 +760,34 @@ def get_chat_history(ticket_id: str):
         "ticket_id": ticket_id,
         "history": history,
         "message_count": len(history),
+    }
+
+
+# ---------- Admin / Demo ----------
+
+@app.post("/api/admin/reset")
+def reset_all_data(key: str = Query(..., description="Admin secret key")):
+    """
+    Reset all mutable state (ticket statuses, checklists, chat histories)
+    back to defaults. Used to reset the demo between presentations.
+    Requires the ADMIN_SECRET key as a query parameter.
+    """
+    if key != ADMIN_SECRET:
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+
+    ticket_states.clear()
+    ticket_checklists.clear()
+    chat_histories.clear()
+
+    # Re-seed ticket statuses from original alert data
+    for alert in raw_alerts:
+        ticket_states[alert["ticket_id"]] = alert["status"]
+
+    return {
+        "message": "All data reset successfully",
+        "tickets_reset": len(raw_alerts),
+        "checklists_cleared": True,
+        "chat_histories_cleared": True,
     }
 
 

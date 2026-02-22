@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useSearchParams } from "react-router";
 import { Ticket, BackendTicket } from "../types";
-import { fetchTickets } from "../api";
+import { fetchTickets, resetAllData } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ErrorState } from "../ErrorHandling/ErrorState";
 import { Wrench, Clipboard } from "lucide-react";
@@ -52,6 +52,45 @@ export function TicketList() {
     loadTickets();
   }, []);
 
+  // ── Secret long-press reset (hold avatar for 3 seconds) ──
+  const [isResetting, setIsResetting] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handlePressStart = useCallback(() => {
+    pressTimer.current = setTimeout(() => {
+      setShowResetConfirm(true);
+    }, 3000);
+  }, []);
+
+  const handlePressEnd = useCallback(() => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  const handleResetConfirm = useCallback(async () => {
+    setIsResetting(true);
+    try {
+      await resetAllData();
+      setShowResetConfirm(false);
+      await loadTickets();
+    } catch (err) {
+      console.error("Reset failed:", err);
+      alert("Reset failed. Check the console for details.");
+    } finally {
+      setIsResetting(false);
+    }
+  }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimer.current) clearTimeout(pressTimer.current);
+    };
+  }, []);
+
   const currentTickets = activeTab === "active" ? activeTickets : pastTickets;
 
   const getStatusPill = (status: string) => {
@@ -94,7 +133,14 @@ export function TicketList() {
           <img
             src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces"
             alt="Technician Avatar"
-            className="w-[49px] h-[49px] rounded-full object-cover"
+            className="w-[49px] h-[49px] rounded-full object-cover select-none"
+            draggable={false}
+            onMouseDown={handlePressStart}
+            onMouseUp={handlePressEnd}
+            onMouseLeave={handlePressEnd}
+            onTouchStart={handlePressStart}
+            onTouchEnd={handlePressEnd}
+            onContextMenu={(e) => e.preventDefault()}
           />
         </div>
       </div>
@@ -204,6 +250,34 @@ export function TicketList() {
           </div>
         )}
       </div>
+
+      {/* Secret Reset Confirmation Dialog */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-6">
+          <div className="bg-white rounded-2xl p-6 max-w-[340px] w-full shadow-xl">
+            <h3 className="text-[16px] font-semibold text-[#1E1E1E] mb-2">Reset Demo Data?</h3>
+            <p className="text-[13px] text-[#595959] mb-5 leading-relaxed">
+              This will reset all ticket statuses, clear generated checklists, and erase chat histories. Use this between demo runs.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={isResetting}
+                className="flex-1 py-2.5 text-[14px] font-medium rounded-xl border border-gray-300 text-[#1E1E1E] hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetConfirm}
+                disabled={isResetting}
+                className="flex-1 py-2.5 text-[14px] font-medium rounded-xl bg-[#FF383C] text-white hover:bg-[#E02E32] transition-colors disabled:opacity-50"
+              >
+                {isResetting ? "Resetting..." : "Reset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

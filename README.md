@@ -53,6 +53,7 @@ The **Field Tech Copilot** bridges this gap. It is an intelligent support agent 
 | `PATCH` | `/api/tickets/{ticket_id}/checklist/{item_index}` | Update a checklist item's completion and notes. Auto-completes ticket when all done. |
 | `POST` | `/api/chat` | Chat with the AI copilot (with ticket context, conversation memory, and optional image). |
 | `GET` | `/api/tickets/{ticket_id}/chat/history` | Retrieve full chat history for a ticket. |
+| `POST` | `/api/admin/reset?key=SECRET` | Reset all demo data (statuses, checklists, chat histories) to defaults. |
 
 Interactive API docs available at `/docs` when the server is running.
 
@@ -125,6 +126,7 @@ pip install -r requirements.txt
 # Create a .env file with:
 # GOOGLE_API_KEY=your_google_api_key_here
 # GEMINI_MODEL=gemini-3-flash-preview  (optional, this is the default)
+# ADMIN_SECRET=sachack2026             (optional, for demo reset endpoint)
 
 # Run the server
 python main.py
@@ -189,6 +191,21 @@ The frontend is configured for [Vercel](https://vercel.com) via `frontend/vercel
 2. Set the **Root Directory** to `frontend`.
 3. Vercel will auto-detect the Vite build (build command: `npm run build`, output: `dist`).
 4. Add the environment variable `VITE_API_BASE_URL` pointing to your Render backend (e.g., `https://your-backend.onrender.com/api`).
+
+## Demo Reset
+
+The app includes a hidden reset feature to restore all data to its initial state between demo presentations. This clears all ticket statuses, generated checklists, and chat histories.
+
+**How to trigger:**
+
+1. **From the UI:** On the home screen, **long-press the technician avatar** (top right) for 3 seconds. A confirmation dialog will appear. Tap "Reset" to restore all data.
+
+2. **From the API:** Send a POST request directly:
+   ```bash
+   curl -X POST "http://localhost:8000/api/admin/reset?key=sachack2026"
+   ```
+
+The default secret key is `sachack2026`. Override it by setting the `ADMIN_SECRET` environment variable.
 
 ## License
 

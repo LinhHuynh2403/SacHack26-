@@ -102,3 +102,14 @@ export async function fetchChatHistory(ticketId: string, stepIdx?: number) {
     // Returns { ticket_id: string, history: [...], message_count: int }
     return response.json();
 }
+
+// Reset all demo data (tickets, checklists, chat histories) back to defaults
+export async function resetAllData(): Promise<{ message: string; tickets_reset: number }> {
+    const response = await fetch(`${API_BASE_URL}/admin/reset?key=sachack2026`, {
+        method: "POST",
+    });
+    if (!response.ok) {
+        throw new Error("Failed to reset demo data");
+    }
+    return response.json();
+}
