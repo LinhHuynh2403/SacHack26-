@@ -8,7 +8,7 @@ export function mapBackendTicket(alert: BackendTicket): Ticket {
         priority: alert.urgency,
         status: alert.status,
         predictedFailure: alert.prediction_details.telemetry_context,
-        assignedTo: "Tech #4521",
+        assignedTo: "Technician #3560",
         timestamp: alert.timestamp,
         location: alert.station_info.location,
         completedDate: alert.status === 'completed' ? alert.timestamp : undefined,
