@@ -1,12 +1,73 @@
 import { useEffect, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router";
+import { useParams, useNavigate } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTicket } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ErrorState } from "../ErrorHandling/ErrorState";
-import { ArrowLeft, AlertTriangle, TrendingUp, TrendingDown, ChevronsRight } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ArrowLeft, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { SwipeToStart } from "../components/SwipeToStart";
+
+// Reusable component to render the beautiful gradient charts 4 times cleanly
+const TrendChart = ({ title, dataKey, color, data }: { title: string, dataKey: string, color: string, data: any[] }) => (
+  <div className="mb-6">
+    <h3 className="text-[16px] text-[#1E1E1E] font-normal mb-2 ml-1">{title}</h3>
+    <div className="bg-white rounded-[20px] pt-5 pb-3 px-2 shadow-[0px_0px_20px_rgba(0,0,0,0.08)]">
+      <div className="h-[140px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 10, right: 15, bottom: 0, left: -25 }}>
+            <defs>
+              <linearGradient id={`color-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor={color} stopOpacity={0.15} />
+                <stop offset="95%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#E5E7EB" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(val) => {
+                const d = new Date(val);
+                if (isNaN(d.getTime())) return val;
+                return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }}
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: '#6B7280' }}
+              dy={10}
+            />
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={{ fontSize: 11, fill: '#6B7280' }}
+            />
+            <Tooltip
+              contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+              labelFormatter={(val) => new Date(val).toLocaleTimeString()}
+            />
+            <Area
+              type="monotone"
+              dataKey={dataKey}
+              stroke={color}
+              strokeWidth={2}
+              fillOpacity={1}
+              fill={`url(#color-${dataKey})`}
+              activeDot={{ r: 5, fill: color, stroke: 'white', strokeWidth: 2 }}
+              dot={{ r: 4, fill: 'white', stroke: color, strokeWidth: 2 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      {/* Custom Figma Legend */}
+      <div className="flex justify-center items-center mt-4 mb-1 gap-2">
+        <div className="flex items-center relative w-6 justify-center">
+          <div className="w-full h-[2px] absolute" style={{ backgroundColor: color }}></div>
+          <div className="w-[10px] h-[10px] rounded-full border-[2px] bg-white relative z-10" style={{ borderColor: color }}></div>
+        </div>
+        <span className="text-[13px] text-[#6B7280]">2025</span>
+      </div>
+    </div>
+  </div>
+);
 
 export function TicketDetail() {
   const { ticketId } = useParams();
@@ -54,8 +115,8 @@ export function TicketDetail() {
   const latestData = telemetry[telemetry.length - 1];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] relative pb-28">
-      {/* Dynamic Header Background (Yellow Warning from Figma) */}
+    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-28">
+      {/* Dynamic Header Background */}
       <div className="absolute top-0 left-0 w-full h-[184px] bg-[#FFF28B] z-0"></div>
 
       {/* Header Content */}
@@ -95,7 +156,7 @@ export function TicketDetail() {
           </div>
         </section>
 
-        {/* Current Status (Telemetry Grid) */}
+        {/* Current Status Grid */}
         {latestData && (
           <section>
             <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-3 ml-1">
@@ -103,7 +164,7 @@ export function TicketDetail() {
             </h2>
             <div className="grid grid-cols-2 gap-4">
 
-              {/* Temperature Box */}
+              {/* Temperature */}
               <div className="bg-[#FFFACE] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
                 <div className="flex justify-between items-start">
                   <span className="text-[12px] text-[#B67909] tracking-[0.4px]">Temperature</span>
@@ -119,7 +180,7 @@ export function TicketDetail() {
                 </div>
               </div>
 
-              {/* Pressure Box */}
+              {/* Pressure */}
               <div className="bg-[#FFDED9] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
                 <div className="flex justify-between items-start">
                   <span className="text-[12px] text-[#E84036] tracking-[0.4px]">Pressure</span>
@@ -135,7 +196,7 @@ export function TicketDetail() {
                 </div>
               </div>
 
-              {/* Voltage Box */}
+              {/* Voltage */}
               <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
                 <span className="text-[12px] text-[#004629] tracking-[0.4px]">Voltage</span>
                 <div>
@@ -146,7 +207,7 @@ export function TicketDetail() {
                 </div>
               </div>
 
-              {/* Current Box */}
+              {/* Current */}
               <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
                 <span className="text-[12px] text-[#004629] tracking-[0.4px]">Current</span>
                 <div>
@@ -161,57 +222,23 @@ export function TicketDetail() {
           </section>
         )}
 
-        {/* Trends Section */}
+        {/* Dynamic 4-Chart Trends Section */}
         {telemetry.length > 0 && (
-          <section>
-            <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-3 ml-1">
+          <section className="pt-2">
+            <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-4 ml-1">
               Trends
             </h2>
-            <div className="space-y-4">
-
-              {/* Pressure Chart */}
-              <div className="bg-white rounded-[20px] p-4 shadow-[0px_0px_20px_rgba(0,0,0,0.08)]">
-                <p className="text-[13px] text-black mb-4">Pressure</p>
-                <div className="h-[120px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={telemetry} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                      <XAxis dataKey="timestamp" tick={false} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                        labelStyle={{ display: 'none' }}
-                      />
-                      <Line type="monotone" dataKey="pressure" stroke="#E84036" strokeWidth={2} dot={{ r: 3, fill: '#E84036', strokeWidth: 0 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Temperature Chart */}
-              <div className="bg-white rounded-[20px] p-4 shadow-[0px_0px_20px_rgba(0,0,0,0.08)]">
-                <p className="text-[13px] text-black mb-4">Temperature</p>
-                <div className="h-[120px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={telemetry} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
-                      <XAxis dataKey="timestamp" tick={false} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
-                        labelStyle={{ display: 'none' }}
-                      />
-                      <Line type="monotone" dataKey="temperature" stroke="#FFA600" strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: '#FFA600', strokeWidth: 2 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
+            <div className="space-y-2">
+              <TrendChart title="Temperature" dataKey="temperature" color="#E84036" data={telemetry} />
+              <TrendChart title="Pressure" dataKey="pressure" color="#FFA600" data={telemetry} />
+              <TrendChart title="Voltage" dataKey="voltage" color="#00CB8B" data={telemetry} />
+              <TrendChart title="Current" dataKey="current" color="#1271BD" data={telemetry} />
             </div>
           </section>
         )}
       </div>
 
-      {/* Sticky Bottom Action */}
-      {/* Added max-w-[430px] to keep it inside the app wrapper */}
+      {/* Sticky Bottom Action (Swipe to Start) */}
       <div className="fixed bottom-6 w-full max-w-[430px] px-6 z-50 flex justify-center">
         <SwipeToStart ticketId={ticketId || ""} />
       </div>
