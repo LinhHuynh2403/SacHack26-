@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { tickets, ChatMessage, manualSteps } from "../data/mockData";
-import { sendChatMessage } from "../api";
+import { tickets as mockTickets, ChatMessage, manualSteps } from "../data/mockData";
+import { sendChatMessage, fetchTicket } from "../api";
 import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -9,7 +9,8 @@ export function ChatInterface() {
   const { ticketId } = useParams();
   const [searchParams] = useSearchParams();
   const stepId = searchParams.get("step");
-  const ticket = tickets.find((t) => t.id === ticketId);
+  const [ticket, setTicket] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -22,6 +23,32 @@ export function ChatInterface() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch real ticket data from backend
+  useEffect(() => {
+    async function getTicket() {
+      if (!ticketId) return;
+      try {
+        const data = await fetchTicket(ticketId);
+        // Map backend fields to frontend format
+        const mappedTicket = {
+          id: data.ticket_id,
+          stationId: data.station_info.charger_id,
+          component: data.prediction_details.failing_component,
+          location: data.station_info.location,
+          // ... add other fields if needed
+        };
+        setTicket(mappedTicket);
+      } catch (error) {
+        console.error("Failed to fetch ticket, falling back to mock:", error);
+        const mock = mockTickets.find((t) => t.id === ticketId);
+        setTicket(mock);
+      } finally {
+        setLoading(false);
+      }
+    }
+    getTicket();
+  }, [ticketId]);
 
   useEffect(() => {
     // Initial AI greeting
@@ -198,6 +225,14 @@ export function ChatInterface() {
       setIsTyping(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   if (!ticket) {
     return <div>Ticket not found</div>;

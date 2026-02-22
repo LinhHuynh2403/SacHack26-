@@ -19,12 +19,14 @@ export function TicketList() {
           stationId: alert.station_info.charger_id,
           component: alert.prediction_details.failing_component,
           priority: alert.urgency as any,
-          status: "assigned",
+          status: alert.status === 'completed' ? 'resolved' :
+            alert.status === 'in_progress' ? 'in-progress' : 'assigned',
           predictedFailure: alert.prediction_details.telemetry_context,
           assignedTo: "Tech #4521",
           timestamp: alert.timestamp,
           location: alert.station_info.location,
         }));
+
         setActiveTickets(mappedTickets);
       } catch (error) {
         console.error(error);

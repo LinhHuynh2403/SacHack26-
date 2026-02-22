@@ -1,7 +1,7 @@
 // frontend/src/app/api.ts
 
 // You can swap this out with your production URL once deployed
-const API_BASE_URL = 'https://sachack26-backend.onrender.com/';
+const API_BASE_URL = 'https://sachack26-backend.onrender.com';
 
 // 1. Fetching all the tickets
 export const fetchTickets = async () => {
@@ -14,6 +14,20 @@ export const fetchTickets = async () => {
         return data;
     } catch (error) {
         console.error("Error fetching tickets:", error);
+        throw error;
+    }
+};
+
+// 1.5 Fetching a single ticket
+export const fetchTicket = async (ticketId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch ticket: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching ticket:", error);
         throw error;
     }
 };
