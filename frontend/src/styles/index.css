@@ -29,6 +29,24 @@
     /* Text */
     --color-text-primary: #000000;
     --color-text-secondary: #595959;
+
+    /* Ticket Detail Header BG */
+    --color-bg-warning-header: #FFF28B;
+
+    /* Telemetry Box: Warning (Yellow) */
+    --color-box-warn-bg: #FFFACE;
+    --color-box-warn-text: #B67909;
+    --color-box-warn-value: #754C00;
+
+    /* Telemetry Box: Success (Green) */
+    --color-box-success-bg: #CBF6E8;
+    --color-box-success-text: #004629;
+    --color-box-success-value: #006E40;
+
+    /* Telemetry Box: Error (Red) - Reusing some from previous, adding specific values */
+    --color-box-danger-bg: #FFDED9;
+    --color-box-danger-text: #E84036;
+    --color-box-danger-value: #852221;
 }
 
 body {
