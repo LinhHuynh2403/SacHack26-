@@ -200,14 +200,21 @@ export function ChatInterface() {
     setIsTyping(true);
 
     try {
-      // If there's an image, we append a note to the message so the backend has context (MVP shim)
-      const finalMessage = hasImage ? `[Image attached]: ${messageText}` : messageText;
+      // Build the message text, noting if an image is attached
+      const finalMessage = hasImage && !messageText.trim()
+        ? "Please analyze this photo and help me diagnose the issue."
+        : messageText;
 
       // Pass the step index if we are in a step-specific chat
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
 
-      // Call standard fetch to FastAPI RAG backend
-      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx);
+      // Send the image base64 data to the backend for AI context
+      const response = await sendChatMessage(
+        finalMessage,
+        ticketId || "UNKNOWN",
+        stepIdx,
+        hasImage ? userMessage.image : undefined
+      );
 
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
