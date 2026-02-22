@@ -1,6 +1,10 @@
-# Fixity
-
-An AI-powered mobile assistant for EV maintenance technicians, built for the **SacHack VII**.
+<p align="center">
+  <img src="asset/fixity_logo.png" alt="Fixity Logo" width="300"/>
+</p>
+<p align="center">
+  <b>An AI-powered mobile assistant for EV maintenance technicians</b><br/>
+  Built for SacHack VII ⚡
+</p>
 
 ## The Mission
 
