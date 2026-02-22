@@ -4,7 +4,7 @@ import { ChatMessage, Ticket, BackendTicket } from "../types";
 import { sendChatMessage, fetchTicket, fetchChatHistory } from "../api";
 import { mapBackendTicket } from "../mapper";
 import {
-  ArrowLeft, Send, Mic, MicOff, Camera, X, RefreshCw, ThumbsUp, ThumbsDown
+  ArrowLeft, Send, Mic, MicOff, ImagePlus, X, RefreshCw, ThumbsUp, ThumbsDown
 } from "lucide-react";
 import { motion } from "motion/react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
@@ -28,13 +28,10 @@ export function ChatInterface() {
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
-  const [showCamera, setShowCamera] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -86,18 +83,23 @@ export function ChatInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Web Speech API setup
+  // Web Speech API setup — interim results enabled for real-time feedback
   useEffect(() => {
     if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
+      recognitionRef.current.interimResults = true;
 
       recognitionRef.current.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
+        let transcript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
         setInput(transcript);
-        setIsListening(false);
+        if (event.results[event.results.length - 1].isFinal) {
+          setIsListening(false);
+        }
       };
 
       recognitionRef.current.onerror = () => setIsListening(false);
@@ -119,44 +121,17 @@ export function ChatInterface() {
     }
   };
 
-  const startCamera = async () => {
-    try {
-      // FACING_MODE environment ensures rear camera on phones
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }
-      });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setShowCamera(true);
-      }
-    } catch (error) {
-      alert("Camera Error: Ensure you are using HTTPS (e.g., via Ngrok) to access the camera on mobile.");
-    }
-  };
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
-      setCapturedImage(canvas.toDataURL("image/jpeg"));
-    }
-  };
-
-  const stopCamera = () => {
-    if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
-    setShowCamera(false);
-    setCapturedImage(null);
-  };
-
-  // Cleanup camera stream on unmount
-  useEffect(() => {
-    return () => {
-      streamRef.current?.getTracks().forEach(t => t.stop());
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCapturedImage(reader.result as string);
     };
-  }, []);
+    reader.readAsDataURL(file);
+    // Reset input so the same file can be re-selected
+    e.target.value = "";
+  };
 
   const handleSend = async () => {
     if (isTyping) return;
@@ -347,6 +322,21 @@ export function ChatInterface() {
         </motion.div>
       )}
 
+      {/* Image Preview */}
+      {capturedImage && (
+        <div className="fixed bottom-[110px] w-full max-w-[430px] px-4 z-40">
+          <div className="relative inline-block">
+            <img src={capturedImage} alt="Selected" className="h-20 rounded-lg border border-gray-300 shadow-sm" />
+            <button
+              onClick={() => setCapturedImage(null)}
+              className="absolute -top-2 -right-2 w-6 h-6 bg-gray-800 text-white rounded-full flex items-center justify-center shadow-md"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Floating Input Area */}
       <div className="fixed bottom-0 w-full max-w-[430px] pb-8 pt-4 px-4 flex items-center gap-3 z-40 bg-gradient-to-t from-[#FFF28B] to-transparent">
         <div className="flex-1 bg-white rounded-full shadow-[0px_0px_20px_rgba(0,0,0,0.10)] h-[55px] flex items-center px-4 gap-2">
@@ -364,7 +354,7 @@ export function ChatInterface() {
             className="flex-1 bg-transparent outline-none text-[#1E1E1E] text-[14px] placeholder-gray-400"
           />
 
-          {input.trim() && (
+          {(input.trim() || capturedImage) && (
             <button onClick={handleSend} className="p-2 text-blue-600 active:scale-95 transition-transform">
               <Send className="w-[18px] h-[18px]" />
             </button>
@@ -372,31 +362,21 @@ export function ChatInterface() {
         </div>
 
         <button
-          onClick={startCamera}
+          onClick={() => fileInputRef.current?.click()}
           className="w-[55px] h-[55px] bg-white rounded-full shadow-[0px_0px_20px_rgba(0,0,0,0.10)] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform text-[#49454F]"
         >
-          <Camera className="w-[20px] h-[20px]" />
+          <ImagePlus className="w-[20px] h-[20px]" />
         </button>
+
+        {/* Hidden file input for image upload */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+        />
       </div>
-
-      {/* Camera Modal */}
-      {showCamera && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-black bg-opacity-50 absolute top-0 w-full z-10">
-            <h3 className="text-white font-medium">Take Photo</h3>
-            <button onClick={stopCamera} className="text-white p-2">
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-          <div className="absolute bottom-10 w-full flex justify-center">
-            <button onClick={capturePhoto} className="w-16 h-16 bg-white rounded-full border-4 border-gray-300" />
-          </div>
-        </div>
-      )}
-
-      {/* Hidden canvas for photo capture */}
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
