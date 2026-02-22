@@ -1,143 +1,223 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams, useNavigate } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist } from "../api";
 import { mapBackendTicket } from "../mapper";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  FileText,
-  MapPin,
-  Clock,
-  AlertCircle,
-} from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-
+import { ErrorState } from "../ErrorHandling/ErrorState";
+import { ArrowLeft, Clipboard, CheckCircle2 } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export function PastTicketDetail() {
   const { ticketId } = useParams();
+  const navigate = useNavigate();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!ticketId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const alert: BackendTicket = await fetchTicket(ticketId);
+      setTicket(mapBackendTicket(alert));
+
+      const checklistData = await fetchChecklist(ticketId);
+      setSteps(checklistData.checklist.map((s: any, idx: number) => ({
+        id: idx + 1,
+        title: s.task,
+        description: s.task,
+        completed: s.completed,
+        aiNote: s.notes
+      })) || []);
+
+    } catch (err: any) {
+      console.error("Failed to load past ticket", err);
+      setError("Unable to retrieve past ticket details.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!ticketId) return;
-      try {
-        const alert: BackendTicket = await fetchTicket(ticketId);
-        setTicket(mapBackendTicket(alert));
-
-        const checklistData = await fetchChecklist(ticketId);
-        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
-          id: idx + 1,
-          title: s.task,
-          description: s.task, // Fallback
-          completed: s.completed,
-          aiNote: s.notes
-        })) || []);
-
-      } catch (error) {
-        console.error("Failed to load past ticket", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadData();
   }, [ticketId]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading details...</div>;
-  if (!ticket) return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
+  if (error || !ticket) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] p-4 pt-12">
+        <ErrorState title="Ticket Load Error" message={error || "Ticket not found"} onRetry={loadData} />
+      </div>
+    );
+  }
 
   const telemetry = ticket.telemetryHistory || [];
-  const completedSteps = steps;
-  const hasAiNotes = completedSteps.some((step) => step.aiNote);
+  const latestData = telemetry[telemetry.length - 1];
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-6">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-4">
-          <Link to="/" className="flex items-center gap-2 text-blue-600 mb-3">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Tickets</span>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold text-gray-900">{ticket.stationId}</h1>
-              <span className="text-xs px-2 py-0.5 rounded-full text-green-700 bg-green-100">
-                RESOLVED
-              </span>
+    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-12">
+      {/* Dynamic Header Background (Yellow) */}
+      <div className="absolute top-0 left-0 w-full h-[184px] bg-[#FFF28B] z-0"></div>
+
+      {/* Header Content */}
+      <div className="px-5 pt-12 relative z-10">
+        <button onClick={() => navigate("/?tab=past")} className="mb-6 active:scale-95 transition-transform">
+          <ArrowLeft className="w-6 h-6 text-[#000000]" />
+        </button>
+
+        <h1 className="text-[22px] font-semibold text-[#000000] tracking-[0.15px] leading-tight">
+          {ticket.stationId}
+        </h1>
+        <div className="mt-4">
+          <p className="text-[12px] text-[#000000] tracking-[0.4px]">Location</p>
+          <p className="text-[13px] text-[#000000] tracking-[0.4px] font-medium mt-0.5">
+            {ticket.location}
+          </p>
+        </div>
+      </div>
+
+      <div className="px-4 mt-8 relative z-10 space-y-6">
+
+        {/* Current Status (Repaired Telemetry Grid - All Green) */}
+        {latestData && (
+          <section>
+            <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-3 ml-1">
+              Current Status
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+
+              {/* Temperature Box */}
+              <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
+                <span className="text-[12px] text-[#004629] tracking-[0.4px]">Temperature</span>
+                <div>
+                  <p className="text-[20px] font-medium text-[#006E40] tracking-[0.5px]">
+                    {latestData.temperature}°C
+                  </p>
+                  <p className="text-[11px] text-[#004629] tracking-[0.4px] mt-0.5">
+                    {latestData.temperature > 50 ? "Above normal (35-50°C)" : "Normal"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pressure Box */}
+              <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
+                <span className="text-[12px] text-[#004629] tracking-[0.4px]">Pressure</span>
+                <div>
+                  <p className="text-[20px] font-medium text-[#006E40] tracking-[0.5px]">
+                    {latestData.pressure} bar
+                  </p>
+                  <p className="text-[11px] text-[#004629] tracking-[0.4px] mt-0.5 leading-tight">
+                    {latestData.pressure < 2.5 ? "Below normal (2.5-3.5)" : "Normal"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Voltage Box */}
+              <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
+                <span className="text-[12px] text-[#004629] tracking-[0.4px]">Voltage</span>
+                <div>
+                  <p className="text-[20px] font-medium text-[#006E40] tracking-[0.5px]">
+                    {latestData.voltage}V
+                  </p>
+                  <p className="text-[11px] text-[#004629] tracking-[0.4px] mt-0.5">Normal</p>
+                </div>
+              </div>
+
+              {/* Current Box */}
+              <div className="bg-[#CBF6E8] rounded-[15px] p-4 flex flex-col justify-between h-[110px]">
+                <span className="text-[12px] text-[#004629] tracking-[0.4px]">Current</span>
+                <div>
+                  <p className="text-[20px] font-medium text-[#006E40] tracking-[0.5px]">
+                    {latestData.current}A
+                  </p>
+                  <p className="text-[11px] text-[#004629] tracking-[0.4px] mt-0.5">Normal</p>
+                </div>
+              </div>
+
             </div>
-            <p className="text-gray-600 mt-1">{ticket.component}</p>
-          </div>
-        </div>
-      </div>
+          </section>
+        )}
 
-      {/* Completion Info Banner */}
-      <div className="bg-green-600 text-white px-4 py-3">
-        <div className="flex items-start gap-3">
-          <CheckCircle2 className="w-5 h-5 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-medium">Repair Completed</p>
-            <p className="text-sm text-green-100 mt-1">
-              Completed on {ticket.completedDate ? new Date(ticket.completedDate).toLocaleString() : "N/A"}
-            </p>
-          </div>
-        </div>
-      </div>
+        {/* Trends Section */}
+        {telemetry.length > 0 && (
+          <section>
+            <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-3 ml-1">
+              Trends
+            </h2>
+            <div className="space-y-4">
 
-      {/* Location & Details */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-600">Location</p>
-            <p className="font-medium text-gray-900 mt-1 flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              {ticket.location}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Predicted At</p>
-            <p className="font-medium text-gray-900 mt-1 flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              {new Date(ticket.timestamp).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3 bg-gray-50 border border-gray-200 rounded-md p-3">
-          <p className="text-sm text-gray-700">{ticket.predictedFailure}</p>
-        </div>
-      </div>
+              {/* Pressure Chart (Green Line) */}
+              <div className="bg-white rounded-[20px] p-4 shadow-[0px_0px_20px_rgba(0,0,0,0.08)]">
+                <p className="text-[13px] text-black mb-4">Pressure</p>
+                <div className="h-[120px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={telemetry} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                      <XAxis dataKey="timestamp" tick={false} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                        labelStyle={{ display: 'none' }}
+                      />
+                      <Line type="monotone" dataKey="pressure" stroke="#2FC955" strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: '#2FC955', strokeWidth: 2 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
 
-      {/* Completed Repair Steps */}
-      <div className="px-4 py-4">
-        <h2 className="font-semibold text-gray-900 mb-3">Repair Steps Completed</h2>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="divide-y divide-gray-200">
-            {completedSteps.map((step) => (
-              <div
-                key={step.id}
-                className={`p-4 ${step.aiNote ? "bg-blue-50" : "bg-white"}`}
-              >
+              {/* Temperature Chart (Red Line) */}
+              <div className="bg-white rounded-[20px] p-4 shadow-[0px_0px_20px_rgba(0,0,0,0.08)]">
+                <p className="text-[13px] text-black mb-4">Temperature</p>
+                <div className="h-[120px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={telemetry} margin={{ top: 5, right: 5, bottom: 5, left: -20 }}>
+                      <XAxis dataKey="timestamp" tick={false} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 10, fill: '#888' }} axisLine={false} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ borderRadius: '10px', border: 'none', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}
+                        labelStyle={{ display: 'none' }}
+                      />
+                      <Line type="monotone" dataKey="temperature" stroke="#E84036" strokeWidth={2} dot={{ r: 3, fill: 'white', stroke: '#E84036', strokeWidth: 2 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+
+            </div>
+          </section>
+        )}
+
+        {/* Repair Summary & AI Notes */}
+        <section>
+          <h2 className="text-[14px] font-medium text-[#000000] tracking-[0.25px] mb-3 ml-1 mt-6">
+            Repair Summary
+          </h2>
+          <div className="space-y-4">
+            {steps.map((step) => (
+              <div key={step.id} className="bg-white rounded-[20px] shadow-[0px_0px_20px_rgba(0,0,0,0.08)] p-5">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="w-6 h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-5 h-5 text-[#2FC955] flex-shrink-0 mt-0.5" />
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-medium text-gray-900">
-                      Step {step.id}: {step.title}
-                    </h4>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {step.description}
-                    </p>
+                    <h3 className="text-[14px] font-medium text-[#1E1E1E] leading-tight mb-1">
+                      {step.title}
+                    </h3>
 
-                    {/* AI Note for this step */}
+                    {/* AI Notes styling matching your Active Tickets list view */}
                     {step.aiNote && (
-                      <div className="mt-3 bg-blue-100 border border-blue-300 rounded-md p-3">
-                        <div className="flex items-start gap-2 mb-1">
-                          <FileText className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <span className="text-xs font-semibold text-blue-800">AI NOTE</span>
+                      <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-[10px] p-3 mt-3">
+                        <div className="flex items-center gap-2 mb-1.5 text-[#2563eb]">
+                          <Clipboard className="w-3.5 h-3.5" />
+                          <span className="font-semibold text-[12px]">Note from fixity</span>
                         </div>
-                        <p className="text-sm text-blue-900 leading-relaxed">
+                        <p className="text-[12px] text-[#1e40af] leading-snug tracking-[0.4px]">
                           {step.aiNote}
                         </p>
                       </div>
@@ -147,148 +227,8 @@ export function PastTicketDetail() {
               </div>
             ))}
           </div>
-        </div>
+        </section>
       </div>
-
-      {/* AI Notes Summary - Only show if there are AI notes */}
-      {hasAiNotes && (
-        <div className="px-4 pb-4">
-          <h2 className="font-semibold text-gray-900 mb-3">Key Learnings</h2>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-start gap-2 mb-3">
-              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <div>
-                <h3 className="font-medium text-blue-900">Important Notes from This Repair</h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  These insights were captured during the repair and can help with future similar issues
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2 mt-3">
-              {completedSteps
-                .filter((step) => step.aiNote)
-                .map((step) => (
-                  <div key={step.id} className="bg-white rounded-md p-3 border border-blue-200">
-                    <p className="text-xs font-semibold text-blue-700 mb-1">Step {step.id}: {step.title}</p>
-                    <p className="text-sm text-gray-700">{step.aiNote}</p>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Telemetry Context from Repair Day */}
-      {telemetry && telemetry.length > 0 && (
-        <div className="px-4 pb-4">
-          <h2 className="font-semibold text-gray-900 mb-3">Telemetry from Repair Day</h2>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <p className="text-sm text-gray-600 mb-4">
-              Sensor data captured on {ticket.completedDate ? new Date(ticket.completedDate).toLocaleDateString() : "repair day"}
-            </p>
-
-            {/* Current Readings at time of completion */}
-            {telemetry[telemetry.length - 1] && (
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                  <span className="text-xs text-green-700">Temperature</span>
-                  <p className="text-2xl font-bold text-green-900 mt-1">
-                    {telemetry[telemetry.length - 1].temperature}°C
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">Normal range</p>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                  <span className="text-xs text-green-700">Pressure</span>
-                  <p className="text-2xl font-bold text-green-900 mt-1">
-                    {telemetry[telemetry.length - 1].pressure} bar
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">Normal range</p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <span className="text-xs text-blue-700">Voltage</span>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">
-                    {telemetry[telemetry.length - 1].voltage}V
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">Normal range</p>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <span className="text-xs text-blue-700">Current</span>
-                  <p className="text-2xl font-bold text-blue-900 mt-1">
-                    {telemetry[telemetry.length - 1].current}A
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1">Normal range</p>
-                </div>
-              </div>
-            )}
-
-            {/* Charts */}
-            <div className="space-y-4">
-              {/* Pressure Chart */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Pressure Trend During Repair</p>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={telemetry}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="pressure"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Temperature Chart */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Temperature Trend During Repair</p>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={telemetry}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="temperature"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Voltage Chart */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Voltage Trend During Repair</p>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={telemetry}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="voltage"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

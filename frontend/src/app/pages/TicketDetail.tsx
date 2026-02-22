@@ -60,7 +60,7 @@ export function TicketDetail() {
 
       {/* Header Content */}
       <div className="px-5 pt-12 relative z-10">
-        <button onClick={() => navigate(-1)} className="mb-6 active:scale-95 transition-transform">
+        <button onClick={() => navigate("/")} className="mb-6 active:scale-95 transition-transform">
           <ArrowLeft className="w-6 h-6 text-[#000000]" />
         </button>
 
