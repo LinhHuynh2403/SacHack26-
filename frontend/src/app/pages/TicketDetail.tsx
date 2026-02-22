@@ -210,8 +210,9 @@ export function TicketDetail() {
         )}
       </div>
 
-      {/* Sticky Bottom Action (Interactive Swipe) */}
-      <div className="fixed bottom-6 w-full px-6 z-50 flex justify-center">
+      {/* Sticky Bottom Action */}
+      {/* Added max-w-[430px] to keep it inside the app wrapper */}
+      <div className="fixed bottom-6 w-full max-w-[430px] px-6 z-50 flex justify-center">
         <SwipeToStart ticketId={ticketId || ""} />
       </div>
 
