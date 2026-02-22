@@ -308,25 +308,35 @@ export function ChatInterface() {
           transition={{ duration: 0.4 }}
           className="fixed bottom-[110px] w-full max-w-[430px] flex justify-center gap-12 z-30 pointer-events-none"
         >
-          <button
+          <motion.button
+            whileTap={{ scale: 0.85 }}
             onClick={() => handleFeedback(lastMessage.id, 'good')}
-            className="flex flex-col items-center gap-2 active:scale-95 transition-transform pointer-events-auto"
+            className="flex flex-col items-center gap-2 transition-transform pointer-events-auto"
           >
-            <div className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'good' ? 'bg-green-100' : 'bg-white'}`}>
-              <ThumbsUp className="w-6 h-6 text-[#49454F]" strokeWidth={2} />
-            </div>
-            <span className="text-[12px] text-black">Good Response</span>
-          </button>
+            <motion.div
+              animate={lastMessage.feedback === 'good' ? { scale: [1, 1.3, 1], rotate: [0, -15, 15, 0] } : {}}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'good' ? 'bg-green-100 text-green-700' : 'bg-white text-[#49454F]'}`}
+            >
+              <ThumbsUp className="w-6 h-6" strokeWidth={2} />
+            </motion.div>
+            <span className="text-[12px] text-black font-medium">Good Response</span>
+          </motion.button>
 
-          <button
+          <motion.button
+            whileTap={{ scale: 0.85 }}
             onClick={() => handleFeedback(lastMessage.id, 'bad')}
-            className="flex flex-col items-center gap-2 active:scale-95 transition-transform pointer-events-auto"
+            className="flex flex-col items-center gap-2 transition-transform pointer-events-auto"
           >
-            <div className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'bad' ? 'bg-red-100' : 'bg-white'}`}>
-              <ThumbsDown className="w-6 h-6 text-[#49454F]" strokeWidth={2} />
-            </div>
-            <span className="text-[12px] text-black">Bad Response</span>
-          </button>
+            <motion.div
+              animate={lastMessage.feedback === 'bad' ? { scale: [1, 1.3, 1], rotate: [0, 15, -15, 0] } : {}}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+              className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'bad' ? 'bg-red-100 text-red-700' : 'bg-white text-[#49454F]'}`}
+            >
+              <ThumbsDown className="w-6 h-6" strokeWidth={2} />
+            </motion.div>
+            <span className="text-[12px] text-black font-medium">Bad Response</span>
+          </motion.button>
         </motion.div>
       )}
 
