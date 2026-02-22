@@ -69,7 +69,7 @@ export async function sendChatMessage(message: string, ticketId: string, stepIdx
     // We append the step context to the message if it exists, since the backend 
     // ChatRequest currently expects just `message` and `ticket_id`
     const finalMessage = stepIdx !== undefined
-        ? `[Regarding Checklist Step ${stepIdx + 1}]: ${message}`
+        ? `${message}`
         : message;
 
     // Strip the data URL prefix (e.g. "data:image/jpeg;base64,") to send raw base64
@@ -88,6 +88,7 @@ export async function sendChatMessage(message: string, ticketId: string, stepIdx
             message: finalMessage,
             ticket_id: ticketId,
             image_base64: cleanedImage || null,
+            step_idx: stepIdx !== undefined ? stepIdx : null,
         }),
     });
 
@@ -99,7 +100,8 @@ export async function sendChatMessage(message: string, ticketId: string, stepIdx
 
 // Fetch the conversation history for a specific ticket
 export async function fetchChatHistory(ticketId: string, stepIdx?: number) {
-    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/chat/history`);
+    const queryParams = stepIdx !== undefined ? `?step_idx=${stepIdx}` : '';
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/chat/history${queryParams}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch chat history for ticket ${ticketId}`);
     }
