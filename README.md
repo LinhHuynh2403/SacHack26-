@@ -1,4 +1,4 @@
-# fixity
+# Fixity
 
 An AI-powered mobile assistant for EV maintenance technicians, built for the **SacHack VII**.
 
