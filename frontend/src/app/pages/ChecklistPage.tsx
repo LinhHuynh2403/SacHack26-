@@ -102,16 +102,13 @@ export function ChecklistPage() {
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-28">
+    <div className="min-h-screen bg-[#F8FAFC] font-['SF -Pro'] relative pb-28">
 
       {/* Yellow Header matches Figma height & color */}
       <div className="w-full bg-[#FFF28B] pt-14 pb-12 px-5 shadow-sm relative z-0">
         <div className="flex items-center justify-between mb-2">
           <button onClick={() => navigate(-1)} className="active:scale-95 transition-transform">
             <ArrowLeft className="w-6 h-6 text-black" />
-          </button>
-          <button className="text-[16px] font-medium text-black">
-            Share
           </button>
         </div>
         <h1 className="text-[20px] font-semibold text-black tracking-[0.15px]">
@@ -186,7 +183,7 @@ export function ChecklistPage() {
 
       {/* Sticky Bottom Action (Swipe to End) */}
       {progress === 100 && (
-        <div className="fixed bottom-6 w-full px-6 z-50 flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-300">
+        <div className="fixed bottom-6 w-full max-w-[430px] px-6 z-50 flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-300">
           <SwipeToEnd onComplete={handleCompleteRepair} />
         </div>
       )}
