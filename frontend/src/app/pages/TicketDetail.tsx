@@ -63,7 +63,7 @@ const TrendChart = ({ title, dataKey, color, data }: { title: string, dataKey: s
           <div className="w-full h-[2px] absolute" style={{ backgroundColor: color }}></div>
           <div className="w-[10px] h-[10px] rounded-full border-[2px] bg-white relative z-10" style={{ borderColor: color }}></div>
         </div>
-        <span className="text-[13px] text-[#6B7280]">2025</span>
+        <span className="text-[13px] text-[#6B7280]">{new Date().getFullYear()}</span>
       </div>
     </div>
   </div>

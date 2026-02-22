@@ -66,12 +66,6 @@ export async function updateChecklistItem(ticketId: string, index: number, compl
 
 // Send a chat message to the RAG Copilot
 export async function sendChatMessage(message: string, ticketId: string, stepIdx?: number, imageBase64?: string) {
-    // We append the step context to the message if it exists, since the backend 
-    // ChatRequest currently expects just `message` and `ticket_id`
-    const finalMessage = stepIdx !== undefined
-        ? `${message}`
-        : message;
-
     // Strip the data URL prefix (e.g. "data:image/jpeg;base64,") to send raw base64
     let cleanedImage: string | undefined;
     if (imageBase64) {
@@ -85,7 +79,7 @@ export async function sendChatMessage(message: string, ticketId: string, stepIdx
         },
         // Matches ChatRequest Pydantic model
         body: JSON.stringify({
-            message: finalMessage,
+            message,
             ticket_id: ticketId,
             image_base64: cleanedImage || null,
             step_idx: stepIdx !== undefined ? stepIdx : null,

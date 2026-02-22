@@ -28,7 +28,7 @@ export function ChecklistPage() {
         setSteps(checklistData.checklist.map((s: any, idx: number) => ({
           id: idx,
           title: s.task,
-          description: s.task,
+          description: s.notes || "",
           completed: s.completed,
           notes: s.notes
         })));

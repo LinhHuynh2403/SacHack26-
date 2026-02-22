@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useParams, useSearchParams, useNavigate } from "react-router";
+import { useParams, useSearchParams, useNavigate } from "react-router";
 import { ChatMessage, Ticket, BackendTicket } from "../types";
 import { sendChatMessage, fetchTicket, fetchChatHistory } from "../api";
 import { mapBackendTicket } from "../mapper";
@@ -26,14 +26,12 @@ export function ChatInterface() {
   const [isListening, setIsListening] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
-  const [cameraMode, setCameraMode] = useState<'viewing' | 'preview'>('viewing');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -128,7 +126,6 @@ export function ChatInterface() {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setShowCamera(true);
-        setCameraMode('viewing');
       }
     } catch (error) {
       alert("Camera Error: Ensure you are using HTTPS (e.g., via Ngrok) to access the camera on mobile.");
@@ -142,7 +139,6 @@ export function ChatInterface() {
       canvas.height = videoRef.current.videoHeight;
       canvas.getContext("2d")?.drawImage(videoRef.current, 0, 0);
       setCapturedImage(canvas.toDataURL("image/jpeg"));
-      setCameraMode('preview');
     }
   };
 
@@ -158,15 +154,6 @@ export function ChatInterface() {
       streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => setCapturedImage(event.target?.result as string);
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSend = async () => {
     if (isTyping) return;
@@ -393,9 +380,8 @@ export function ChatInterface() {
         </div>
       )}
 
-      {/* Hidden inputs */}
+      {/* Hidden canvas for photo capture */}
       <canvas ref={canvasRef} className="hidden" />
-      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
     </div>
   );
 }
