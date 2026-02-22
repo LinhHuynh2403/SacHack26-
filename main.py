@@ -1,16 +1,17 @@
 import os
-import sys
-
-# SQLite hack for ChromaDB on Vercel
-if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
-    __import__('pysqlite3')
-    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
-
 import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+# Ensure pysqlite3 is used if we are on a system with old sqlite3 (like some cloud providers)
+try:
+    import pysqlite3
+    import sys
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass
 
 # LangChain and vector store imports
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
@@ -39,9 +40,6 @@ DATA_DIR = "dummy_data"
 MANUALS_DIR = os.path.join(DATA_DIR, "manuals")
 ALERTS_FILE = os.path.join(DATA_DIR, "telemetry_alerts.json")
 
-# The user requested Gemini 3.1 Pro or Gemini 3 flash.
-# Note: Adjust the model string depending on exactly which version
-# is available to your current Google API Key tier.
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 
 # Global variables to hold our RAG chain
@@ -59,17 +57,8 @@ def init_rag():
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
     
-    # Store in Chroma memory (or persist to disk with persist_directory="./chroma_db")
     persist_dir = "./chroma_db"
     
-    if os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV"):
-        import shutil
-        tmp_dir = "/tmp/chroma_db"
-        if not os.path.exists(tmp_dir) and os.path.exists(persist_dir):
-            print(f"Copying {persist_dir} to {tmp_dir} for write access on Vercel...")
-            shutil.copytree(persist_dir, tmp_dir)
-        persist_dir = tmp_dir
-
     if os.path.exists(persist_dir):
         print("Loading existing Chroma DB...")
         vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
@@ -111,9 +100,9 @@ def init_rag():
     
     print("RAG Pipeline initialized and ready!")
 
-# Note for Hackathon: Normally we use lifespan events, 
-# but for a quick script startup event is fine.
-
+@app.on_event("startup")
+async def startup_event():
+    init_rag()
 
 # ---------- API ROUTES ----------
 
@@ -127,23 +116,6 @@ def get_tickets():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load alerts: {str(e)}")
 
-@app.get("/api/debug")
-def debug_info():
-    import sqlite3
-    try:
-        import chromadb
-        chroma_version = chromadb.__version__
-    except Exception as e:
-        chroma_version = str(e)
-    
-    return {
-        "python_version": sys.version,
-        "sqlite3_version": sqlite3.sqlite_version,
-        "vercel_env": os.environ.get("VERCEL_ENV"),
-        "chroma_version": chroma_version,
-        "tmp_contents": os.listdir("/tmp") if os.path.exists("/tmp") else []
-    }
-
 class ChatRequest(BaseModel):
     message: str
     ticket_id: str
@@ -151,19 +123,8 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 def chat_with_copilot(request: ChatRequest):
     """Answers a technician's question using the RAG manuals."""
-    global rag_chain
-    if not rag_chain:
-        try:
-            init_rag()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to initialize RAG: {str(e)}")
-            
     if not rag_chain:
         raise HTTPException(status_code=500, detail="RAG Pipeline not initialized (Check GOOGLE_API_KEY)")
-    
-    # In a real app, we would look up the exact charger details based on ticket_id
-    # and maybe filter the vector search metadata. For this MVP, we pass the 
-    # context into the history/input.
     
     try:
         response = rag_chain.invoke({"input": request.message})
@@ -174,8 +135,6 @@ def chat_with_copilot(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
 if __name__ == "__main__":
     import uvicorn
-    # run: python main.py
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
