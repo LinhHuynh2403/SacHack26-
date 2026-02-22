@@ -1,4 +1,12 @@
-# fixity - Frontend
+<p align="center">
+  <img src="../asset/fixity_logo.png" alt="Fixity Logo" width="300"/>
+</p>
+<p align="center">
+  <b>An AI-powered mobile assistant for EV maintenance technicians</b><br/>
+  Built for SacHack VII ⚡
+</p>
+
+# Frontend
 
 The frontend for **fixity**, an AI-powered mobile assistant for EV charger maintenance technicians. Built as a Progressive Web App (PWA) for hands-free field use.
 
