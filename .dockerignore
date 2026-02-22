@@ -1,0 +1,17 @@
+# Frontend — not needed in backend image
+frontend/
+
+# Python artifacts
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Local state
+chroma_db/
+.env
+NUL
+
+# Git
+.git/
+.gitignore
