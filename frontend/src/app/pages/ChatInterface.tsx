@@ -1,19 +1,27 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams, useNavigate } from "react-router";
 import { ChatMessage, Ticket, BackendTicket } from "../types";
 import { sendChatMessage, fetchTicket, fetchChatHistory, fetchChecklist } from "../api";
 import { mapBackendTicket } from "../mapper";
-import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft, Send, Mic, MicOff, Camera, X, RefreshCw, ThumbsUp, ThumbsDown
+} from "lucide-react";
 import { motion } from "motion/react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
 
+// Extended interface to handle local feedback state
+interface FixityMessage extends ChatMessage {
+  feedback?: 'good' | 'bad' | null;
+}
+
 export function ChatInterface() {
   const { ticketId } = useParams();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const stepId = searchParams.get("step");
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<FixityMessage[]>([]);
   const [input, setInput] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
@@ -30,7 +38,6 @@ export function ChatInterface() {
 
   const loadData = async () => {
     if (!ticketId) return;
-    // Clear messages immediately when step changes to give a "fresh chat" feel
     setMessages([]);
     setLoading(true);
     setError(null);
@@ -40,29 +47,26 @@ export function ChatInterface() {
       const mappedTicket = mapBackendTicket(data);
       setTicket(mappedTicket);
 
-      // Fetch history for this specific step
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
       const historyData = await fetchChatHistory(ticketId, stepIdx);
 
       if (historyData.history && historyData.history.length > 0) {
-        const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
+        const mappedMessages: FixityMessage[] = historyData.history.map((m: any, idx: number) => ({
           id: `history-${idx}`,
           role: m.role,
           content: m.content,
           timestamp: m.timestamp,
         }));
         setMessages(mappedMessages);
-
       } else {
-        // Initial AI greeting if no history
-        // Fetch the checklist to get the actual task name for this step
+        // Initial fixity greeting
+        let greetingText = "Hi, I’m fixity, your AI assistant. How can I help you?";
+
         const checklistData = await fetchChecklist(ticketId);
         const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
 
-        let greetingText = `Hi Tech! I'm your Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
-
         if (currentStep && stepIdx !== undefined) {
-          greetingText = `Hi Tech! I'm ready to help specifically with Step ${stepIdx + 1}: **${currentStep.task}**. Let me know if you need clarification or specific values from the manual.`;
+          greetingText = `Hi, I’m fixity, your AI assistant. I see you are on Step ${stepIdx + 1}: "${currentStep.task}". How can I help you with this?`;
         }
 
         setMessages([{
@@ -74,21 +78,19 @@ export function ChatInterface() {
       }
     } catch (err: any) {
       console.error("Failed to fetch ticket or history:", err);
-      setError("The AI Copilot is currently offline. Please check your network connection.");
+      setError("The AI Copilot is currently offline. Please check your connection.");
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch real ticket data and chat history from backend
   useEffect(() => {
     loadData();
   }, [ticketId, stepId]);
 
-
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   // Web Speech API setup
   useEffect(() => {
@@ -104,13 +106,8 @@ export function ChatInterface() {
         setIsListening(false);
       };
 
-      recognitionRef.current.onerror = () => {
-        setIsListening(false);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-      };
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
     }
   }, []);
 
@@ -119,7 +116,6 @@ export function ChatInterface() {
       alert("Speech recognition is not supported in your browser");
       return;
     }
-
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
@@ -131,9 +127,7 @@ export function ChatInterface() {
 
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
@@ -173,9 +167,7 @@ export function ChatInterface() {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
-        setCapturedImage(event.target?.result as string);
-      };
+      reader.onload = (event) => setCapturedImage(event.target?.result as string);
       reader.readAsDataURL(file);
     }
   };
@@ -183,8 +175,7 @@ export function ChatInterface() {
   const handleSend = async () => {
     if (!input.trim() && !capturedImage) return;
 
-    // Add user message
-    const userMessage: ChatMessage = {
+    const userMessage: FixityMessage = {
       id: Date.now().toString(),
       role: "user",
       content: input || "📷 [Photo attached]",
@@ -200,23 +191,11 @@ export function ChatInterface() {
     setIsTyping(true);
 
     try {
-      // Build the message text, noting if an image is attached
-      const finalMessage = hasImage && !messageText.trim()
-        ? "Please analyze this photo and help me diagnose the issue."
-        : messageText;
-
-      // Pass the step index if we are in a step-specific chat
+      const finalMessage = hasImage ? `[Image attached]: ${messageText}` : messageText;
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
+      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx);
 
-      // Send the image base64 data to the backend for AI context
-      const response = await sendChatMessage(
-        finalMessage,
-        ticketId || "UNKNOWN",
-        stepIdx,
-        hasImage ? userMessage.image : undefined
-      );
-
-      const aiResponse: ChatMessage = {
+      const aiResponse: FixityMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
         content: response.answer,
@@ -225,10 +204,10 @@ export function ChatInterface() {
       setMessages((prev) => [...prev, aiResponse]);
     } catch (error) {
       console.error(error);
-      const errorResponse: ChatMessage = {
+      const errorResponse: FixityMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I am having trouble connecting to the server right now.",
+        content: "Sorry, I am having trouble connecting to the network right now.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorResponse]);
@@ -237,226 +216,179 @@ export function ChatInterface() {
     }
   };
 
+  const handleFeedback = (messageId: string, type: 'good' | 'bad') => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, feedback: type } : msg
+    ));
+    console.log(`Feedback registered for ${messageId}: ${type}`);
+  };
+
   if (loading && messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Connecting to AI Copilot...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#D9EDFD] to-[#FFF28B]/80">
+        <RefreshCw className="w-10 h-10 text-gray-800 animate-spin mb-4" />
+        <p className="text-gray-800 font-medium">Connecting to fixity...</p>
       </div>
     );
   }
 
   if (error && messages.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
-        <ErrorState
-          title="Voice of the Pigeon"
-          message={error}
-          onRetry={loadData}
-        />
+      <div className="min-h-screen bg-[#D9EDFD] p-4 pt-12 text-center flex flex-col items-center justify-center">
+        <ErrorState title="Connection Error" message={error} onRetry={loadData} />
       </div>
     );
   }
 
-  if (!ticket) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center text-gray-500">
-        Ticket not found
-      </div>
-    );
-  }
-
+  // Condition: Only show feedback if there are at least 3 messages (Greeting + User + AI), 
+  // the AI isn't typing, and the very last message is from the assistant.
+  const lastMessage = messages[messages.length - 1];
+  const showFeedback = messages.length >= 3 && !isTyping && lastMessage?.role === "assistant";
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-[#D9EDFD] from-[7%] to-[#FFF28B]/80 font-['Roboto'] relative">
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white sticky top-0 z-10 shadow-md">
-        <div className="px-4 py-4">
-          <Link
-            to={stepId ? `/checklist/${ticketId}` : `/ticket/${ticketId}`}
-            className="flex items-center gap-2 mb-3 opacity-90"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to {stepId ? "Checklist" : "Details"}</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="font-semibold">AI Assistant</h1>
-              <p className="text-sm text-blue-100">
-                {ticket.stationId} - {ticket.component}
-              </p>
-            </div>
-          </div>
+      <div className="flex items-center justify-between px-5 pt-14 pb-4 sticky top-0 z-10">
+        <button onClick={() => navigate(-1)} className="active:scale-95 transition-transform p-1">
+          <ArrowLeft className="w-6 h-6 text-[#1E1E1E]" />
+        </button>
+
+        {/* Fixity Logo styling */}
+        <div className="text-[20px] font-bold text-black tracking-tight flex items-center">
+          fixit<span className="text-[#EED300] ml-[1px]">y</span>
         </div>
+
+        <div className="w-8" /> {/* Spacer for centering */}
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {messages.map((message) => (
-          <motion.div
-            key={message.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            {message.role === "assistant" && (
-              <div className="flex gap-2 max-w-[85%]">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </div>
-                <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-200">
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-line">{message.content}</p>
-                </div>
-              </div>
-            )}
-            {message.role === "user" && (
-              <div className="max-w-[85%]">
+      <div className="flex-1 overflow-y-auto px-5 py-2 space-y-6 scroll-smooth">
+        {messages.map((message) => {
+          const isAI = message.role === "assistant";
+
+          return (
+            <motion.div
+              key={message.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className={`flex flex-col w-full ${isAI ? "items-start" : "items-end"}`}
+            >
+              <div
+                className={`max-w-[85%] px-5 py-4 shadow-[0px_0px_10px_rgba(0,0,0,0.05)] ${isAI
+                  ? "bg-white/50 backdrop-blur-sm rounded-tr-[20px] rounded-br-[20px] rounded-bl-[20px]"
+                  : "bg-white rounded-tl-[20px] rounded-br-[20px] rounded-bl-[20px]"
+                  }`}
+              >
                 {message.image && (
-                  <div className="bg-blue-600 rounded-2xl rounded-tr-sm p-2 shadow-sm mb-1">
-                    <img
-                      src={message.image}
-                      alt="User captured"
-                      className="rounded-lg max-w-full h-auto"
-                    />
-                  </div>
+                  <img src={message.image} alt="User captured" className="rounded-lg mb-2 max-w-full h-auto" />
                 )}
-                <div className="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-sm">
-                  <p className="leading-relaxed">{message.content}</p>
-                </div>
+                <p className={`text-[13px] leading-relaxed whitespace-pre-line ${isAI ? "text-[#1E1E1E]" : "text-black"}`}>
+                  {message.content}
+                </p>
               </div>
-            )}
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
 
         {isTyping && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="flex gap-2"
-          >
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-              <Sparkles className="w-4 h-4 text-white" />
-            </div>
-            <div className="bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-200" style={{ maxWidth: '85%' }}>
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-start">
+            <div className="bg-white/50 backdrop-blur-sm rounded-tr-[20px] rounded-br-[20px] rounded-bl-[20px] px-5 py-4 shadow-sm">
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }}></div>
+                <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }}></div>
               </div>
             </div>
           </motion.div>
         )}
 
-        <div ref={messagesEndRef} />
+        {/* Extra padding at the bottom so the last message isn't hidden by the feedback buttons */}
+        <div ref={messagesEndRef} className="h-32" />
+      </div>
+
+      {/* Floating Feedback Buttons (Only shown after user prompts and AI replies) */}
+      {showFeedback && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="fixed bottom-[110px] w-full max-w-[430px] flex justify-center gap-12 z-30 pointer-events-none"
+        >
+          <button
+            onClick={() => handleFeedback(lastMessage.id, 'good')}
+            className="flex flex-col items-center gap-2 active:scale-95 transition-transform pointer-events-auto"
+          >
+            <div className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'good' ? 'bg-green-100' : 'bg-white'}`}>
+              <ThumbsUp className="w-6 h-6 text-[#49454F]" strokeWidth={2} />
+            </div>
+            <span className="text-[12px] text-black">Good Response</span>
+          </button>
+
+          <button
+            onClick={() => handleFeedback(lastMessage.id, 'bad')}
+            className="flex flex-col items-center gap-2 active:scale-95 transition-transform pointer-events-auto"
+          >
+            <div className={`w-[55px] h-[55px] rounded-full flex items-center justify-center shadow-[0px_0px_15px_rgba(0,0,0,0.08)] ${lastMessage.feedback === 'bad' ? 'bg-red-100' : 'bg-white'}`}>
+              <ThumbsDown className="w-6 h-6 text-[#49454F]" strokeWidth={2} />
+            </div>
+            <span className="text-[12px] text-black">Bad Response</span>
+          </button>
+        </motion.div>
+      )}
+
+      {/* Floating Input Area */}
+      <div className="fixed bottom-0 w-full max-w-[430px] pb-8 pt-4 px-4 flex items-center gap-3 z-40 bg-gradient-to-t from-[#FFF28B] to-transparent">
+        <div className="flex-1 bg-white rounded-full shadow-[0px_0px_20px_rgba(0,0,0,0.10)] h-[55px] flex items-center px-4 gap-2">
+
+          <button onClick={toggleListening} className={`p-2 rounded-full transition-colors ${isListening ? 'text-red-500 bg-red-50' : 'text-[#49454F]'}`}>
+            {isListening ? <MicOff className="w-[20px] h-[20px]" /> : <Mic className="w-[20px] h-[20px]" />}
+          </button>
+
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            placeholder={isListening ? "Listening..." : "Type your message..."}
+            className="flex-1 bg-transparent outline-none text-[#1E1E1E] text-[14px] placeholder-gray-400"
+          />
+
+          {input.trim() && (
+            <button onClick={handleSend} className="p-2 text-blue-600 active:scale-95 transition-transform">
+              <Send className="w-[18px] h-[18px]" />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={startCamera}
+          className="w-[55px] h-[55px] bg-white rounded-full shadow-[0px_0px_20px_rgba(0,0,0,0.10)] flex items-center justify-center flex-shrink-0 active:scale-95 transition-transform text-[#49454F]"
+        >
+          <Camera className="w-[20px] h-[20px]" />
+        </button>
       </div>
 
       {/* Camera Modal */}
       {showCamera && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="flex items-center justify-between p-4 bg-black bg-opacity-50">
+          <div className="flex items-center justify-between p-4 bg-black bg-opacity-50 absolute top-0 w-full z-10">
             <h3 className="text-white font-medium">Take Photo</h3>
-            <button
-              onClick={stopCamera}
-              className="text-white p-2 active:scale-95 transition-transform"
-            >
+            <button onClick={stopCamera} className="text-white p-2">
               <X className="w-6 h-6" />
             </button>
           </div>
-          <div className="flex-1 relative">
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="p-6 bg-black bg-opacity-50 flex justify-center">
-            <button
-              onClick={capturePhoto}
-              className="w-16 h-16 bg-white rounded-full border-4 border-gray-300 active:scale-95 transition-transform"
-            />
+          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          <div className="absolute bottom-10 w-full flex justify-center">
+            <button onClick={capturePhoto} className="w-16 h-16 bg-white rounded-full border-4 border-gray-300" />
           </div>
         </div>
       )}
 
-      {/* Hidden canvas for photo capture */}
+      {/* Hidden inputs */}
       <canvas ref={canvasRef} className="hidden" />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-
-      {/* Input */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3">
-        {isListening && (
-          <div className="mb-2 flex items-center justify-center gap-2 text-blue-600">
-            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium">Listening...</span>
-          </div>
-        )}
-
-        {capturedImage && (
-          <div className="mb-2 relative inline-block">
-            <img
-              src={capturedImage}
-              alt="Captured"
-              className="h-20 rounded-lg border-2 border-blue-600"
-            />
-            <button
-              onClick={() => setCapturedImage(null)}
-              className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-end gap-2">
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 bg-gray-100 text-gray-600 rounded-full flex-shrink-0 active:bg-gray-200 transition-all"
-          >
-            <Camera className="w-5 h-5" />
-          </button>
-          <button
-            onClick={toggleListening}
-            className={`p-3 rounded-full flex-shrink-0 transition-all ${isListening
-              ? "bg-red-600 text-white"
-              : "bg-gray-100 text-gray-600 active:bg-gray-200"
-              }`}
-          >
-            {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-          </button>
-          <div className="flex-1 bg-gray-100 rounded-3xl px-4 py-3 flex items-center">
-            <input
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend()}
-              placeholder="Type or speak your message..."
-              className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-500"
-            />
-          </div>
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() && !capturedImage}
-            className="p-3 bg-blue-600 text-white rounded-full flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 transition-transform"
-          >
-            <Send className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-xs text-gray-500 text-center mt-2">
-          Tap camera or mic to use photo/voice input
-        </p>
-      </div>
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
     </div>
   );
 }
