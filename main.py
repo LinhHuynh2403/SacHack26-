@@ -110,6 +110,53 @@ def get_tickets():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load alerts: {str(e)}")
 
+@app.get("/api/tickets/{ticket_id}/checklist")
+def get_ticket_checklist(ticket_id: str):
+    """Generates a step-by-step repair checklist for a specific ticket using RAG."""
+    if not rag_chain:
+        raise HTTPException(status_code=500, detail="RAG Pipeline not initialized (Check GOOGLE_API_KEY)")
+    
+    try:
+        with open(ALERTS_FILE, "r") as f:
+            alerts = json.load(f)
+            
+        ticket = next((t for t in alerts if t["ticket_id"] == ticket_id), None)
+        if not ticket:
+            raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+            
+        model = ticket["station_info"]["model"]
+        error_code = ticket["prediction_details"]["expected_error_code"]
+        context = ticket["prediction_details"]["telemetry_context"]
+        
+        prompt = f"Create a concise, step-by-step repair checklist for a technician working on a '{model}' charger with expected error code '{error_code}'. The telemetry context is: '{context}'. Only output a numbered checklist of tasks to perform."
+        
+        response = rag_chain.invoke({"input": prompt})
+        
+        # Split the response into a list of checklist items, stripping numbers/bullets
+        raw_steps = response["answer"].split('\n')
+        checklist = []
+        import re
+        for step in raw_steps:
+            step = step.strip()
+            if step and (step[0].isdigit() or step.startswith('-') or step.startswith('*')):
+                # Clean up the prefix
+                clean_step = re.sub(r'^(\d+\.|\-|\*)\s*', '', step)
+                if clean_step:
+                    checklist.append({"task": clean_step, "completed": False})
+                
+        # Fallback if no list format was detected
+        if not checklist:
+            checklist = [{"task": step.strip(), "completed": False} for step in raw_steps if step.strip()]
+            
+        return {
+            "ticket_id": ticket_id,
+            "checklist": checklist
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ChatRequest(BaseModel):
     message: str
     ticket_id: str
