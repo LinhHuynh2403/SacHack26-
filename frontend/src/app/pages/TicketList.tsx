@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTickets } from "../api";
 import { mapBackendTicket } from "../mapper";
@@ -7,7 +7,12 @@ import { ErrorState } from "../ErrorHandling/ErrorState";
 import { Wrench, Clipboard } from "lucide-react";
 
 export function TicketList() {
-  const [activeTab, setActiveTab] = useState<"active" | "past">("active");
+  // Read the URL parameters to see if we should start on the "past" tab
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"active" | "past">(
+    searchParams.get("tab") === "past" ? "past" : "active"
+  );
+
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
   const [pastTickets, setPastTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,6 +24,19 @@ export function TicketList() {
     try {
       const data = await fetchTickets();
       const allTickets: Ticket[] = data.map((alert: BackendTicket) => mapBackendTicket(alert));
+
+      const priorityOrder: Record<string, number> = {
+        critical: 1,
+        high: 2,
+        medium: 3,
+        low: 4
+      };
+
+      allTickets.sort((a, b) => {
+        const pA = priorityOrder[a.priority] || 99;
+        const pB = priorityOrder[b.priority] || 99;
+        return pA - pB;
+      });
 
       setActiveTickets(allTickets.filter((t) => t.status !== "completed"));
       setPastTickets(allTickets.filter((t) => t.status === "completed"));
@@ -39,17 +57,18 @@ export function TicketList() {
   const getStatusPill = (status: string) => {
     switch (status) {
       case "completed":
-        return <span className="bg-status-completed-bg text-status-completed-text px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Completed</span>;
+        // Matches the new #00CB8B green from Figma
+        return <span className="bg-[#00CB8B] text-white px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Completed</span>;
       case "in_progress":
-        return <span className="bg-status-process-bg text-status-process-text px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">In Process</span>;
+        return <span className="bg-[#FF383C] text-white px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">In Process</span>;
       default: // predicted_failure, offline
-        return <span className="bg-status-notstarted-bg text-status-notstarted-text px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Not started</span>;
+        return <span className="bg-[#cce7ff] text-[#5A5A5A] px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Not started</span>;
     }
   };
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-bg-app">
+      <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -57,14 +76,14 @@ export function TicketList() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-bg-app p-4 pt-12 text-center flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-[#F8FAFC] p-4 pt-12 text-center flex flex-col items-center justify-center">
         <ErrorState title="Dashboard Error" message={error} onRetry={loadTickets} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-bg-app font-['Roboto'] pb-6">
+    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] pb-6">
       {/* Header matching Figma exactly */}
       <div className="px-5 pt-16 pb-6 relative">
         <div className="flex items-center justify-between">
@@ -82,12 +101,12 @@ export function TicketList() {
 
       {/* Figma exact Pill-shaped Tabs */}
       <div className="px-4 pb-6">
-        <div className="flex bg-tab-container p-0.5 rounded-full items-center">
+        <div className="flex bg-[#D9EDFD] p-0.5 rounded-full items-center">
           <button
             onClick={() => setActiveTab("active")}
             className={`flex-1 py-1.5 text-[14px] font-medium rounded-full transition-all ${activeTab === "active"
-                ? "bg-tab-active text-text-primary shadow-sm"
-                : "text-text-primary/70 hover:text-text-primary"
+              ? "bg-white text-black shadow-sm"
+              : "text-black/70 hover:text-black"
               }`}
           >
             Active Ticket
@@ -95,8 +114,8 @@ export function TicketList() {
           <button
             onClick={() => setActiveTab("past")}
             className={`flex-1 py-1.5 text-[14px] font-medium rounded-full transition-all ${activeTab === "past"
-                ? "bg-tab-active text-text-primary shadow-sm"
-                : "text-text-primary/70 hover:text-text-primary"
+              ? "bg-white text-black shadow-sm"
+              : "text-black/70 hover:text-black"
               }`}
           >
             Past Ticket
@@ -113,37 +132,46 @@ export function TicketList() {
             <Link
               key={ticket.id}
               to={activeTab === "active" ? `/ticket/${ticket.id}` : `/past-ticket/${ticket.id}`}
-              className="block bg-bg-card rounded-[20px] p-5 shadow-[0px_0px_20px_rgba(0,0,0,0.10)] active:scale-[0.98] transition-transform relative"
+              className="block bg-white rounded-[20px] p-5 shadow-[0px_0px_20px_rgba(0,0,0,0.10)] active:scale-[0.98] transition-transform relative"
             >
 
               {/* Top Header: ID & Pill */}
               <div className="flex justify-between items-start mb-1">
-                <h2 className="text-[16px] font-medium text-text-primary tracking-[0.5px]">
-                  {ticket.stationId}
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-[16px] font-medium text-black tracking-[0.5px]">
+                    {ticket.stationId}
+                  </h2>
+                  <span className={`text-[11px] px-2 py-0.5 rounded font-medium border ${ticket.priority === 'critical' ? 'bg-red-50 text-red-600 border-red-200' :
+                    ticket.priority === 'high' ? 'bg-orange-50 text-orange-600 border-orange-200' :
+                      ticket.priority === 'medium' ? 'bg-yellow-50 text-yellow-600 border-yellow-200' :
+                        'bg-green-50 text-green-600 border-green-200'
+                    }`}>
+                    {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
+                  </span>
+                </div>
                 {getStatusPill(ticket.status)}
               </div>
 
               {/* Subtitle Details */}
               <div className="space-y-1 mb-4">
-                <p className="text-[12px] text-text-secondary tracking-[0.4px]">
+                <p className="text-[12px] text-[#595959] tracking-[0.4px]">
                   {ticket.location}
                 </p>
-                <div className="flex items-center gap-1.5 text-text-secondary">
+                <div className="flex items-center gap-1.5 text-[#595959]">
                   <Wrench className="w-3.5 h-3.5" />
                   <span className="text-[12px] tracking-[0.4px]">{ticket.component}</span>
                 </div>
               </div>
 
-              {/* Telemetry/Prediction Box */}
+              {/* Telemetry/Prediction Box (Red for Active, Gray for Completed) */}
               <div
                 className={`border-[0.5px] rounded-[10px] p-3 ${isCompleted
-                    ? "bg-gray-50 border-gray-200"
-                    : "bg-box-error-bg border-box-error-border"
+                  ? "bg-[#EEEEEE] border-[#5A5A5A]"
+                  : "bg-[#FFDED9] border-[#852221]"
                   }`}
               >
                 <p
-                  className={`text-[12px] leading-tight tracking-[0.4px] whitespace-pre-line ${isCompleted ? "text-gray-700" : "text-box-error-text"
+                  className={`text-[12px] leading-tight tracking-[0.4px] whitespace-pre-line ${isCompleted ? "text-[#49454F]" : "text-[#852221]"
                     }`}
                 >
                   {ticket.predictedFailure}
@@ -152,12 +180,12 @@ export function TicketList() {
 
               {/* AI Notes Box (Only for Past Tickets) */}
               {isCompleted && ticket.aiNotes && ticket.aiNotes.length > 0 && (
-                <div className="bg-[#eff6ff] border border-[#bfdbfe] rounded-[10px] p-3 mt-3">
-                  <div className="flex items-center gap-2 mb-1.5 text-[#2563eb]">
+                <div className="bg-[#D6E3EE] border-[0.5px] border-[#1271BD] rounded-[10px] p-3 mt-3">
+                  <div className="flex items-center gap-2 mb-1.5 text-[#1271BD]">
                     <Clipboard className="w-3.5 h-3.5" />
-                    <span className="font-semibold text-[12px]">Note from fixity</span>
+                    <span className="font-medium text-[12px]">Note from fixity</span>
                   </div>
-                  <ul className="list-disc list-inside text-[12px] text-[#1e40af] space-y-0.5">
+                  <ul className="list-disc list-inside text-[12px] text-[#1271BD] space-y-0.5">
                     {ticket.aiNotes.map((note: string, idx: number) => (
                       <li key={idx} className="leading-snug tracking-[0.4px]">
                         {note}
