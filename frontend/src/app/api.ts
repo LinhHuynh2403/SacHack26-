@@ -1,7 +1,7 @@
 // frontend/src/app/api.ts
 
 // You can swap this out with your production URL once deployed
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://sachack26-backend.onrender.com/';
 
 // 1. Fetching all the tickets
 export const fetchTickets = async () => {
