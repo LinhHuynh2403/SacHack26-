@@ -188,10 +188,16 @@ export function ChatInterface() {
         }
       }
 
+      // Append source references to the answer if available
+      let answerContent = response.answer;
+      if (response.sources && response.sources.length > 0) {
+        answerContent += `\n\nSources: ${response.sources.join(', ')}`;
+      }
+
       const aiResponse: FixityMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.answer,
+        content: answerContent,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, aiResponse]);

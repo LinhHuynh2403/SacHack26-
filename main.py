@@ -4,6 +4,7 @@ import json
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from typing import Optional
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,13 +12,14 @@ from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
 # LangChain and vector store imports
-from langchain_community.document_loaders import DirectoryLoader, TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import (
+    RecursiveCharacterTextSplitter,
+    MarkdownHeaderTextSplitter,
+)
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
 from langchain_chroma import Chroma
-from langchain.chains import create_retrieval_chain
-from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.documents import Document
 
 load_dotenv()
 
@@ -75,6 +77,7 @@ class ChatResponse(BaseModel):
     ticket_id: str
     history_length: int
     completed_steps: list[int] = []  # indices of checklist steps auto-completed by the AI
+    sources: list[str] = []  # source document references used in the answer
 
 # ──────────────────────────────────────────────
 # In-Memory State Store
@@ -103,10 +106,79 @@ DATA_DIR = "dummy_data"
 MANUALS_DIR = os.path.join(DATA_DIR, "manuals")
 ALERTS_FILE = os.path.join(DATA_DIR, "telemetry_alerts.json")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
+CHROMA_PERSIST_DIR = "./chroma_db"
 
-# Global RAG variables
+# Global RAG variables — we store vector_store + llm separately instead of
+# a pre-built chain, so we can control retrieval queries independently of
+# the prompt context that gets sent to the LLM.
 vector_store = None
-rag_chain = None
+llm = None
+
+
+def _parse_manual_metadata(filepath: str) -> dict[str, str]:
+    """Extract charger_model and component from a manual filename.
+
+    Example: 'ABB_Terra_54_Cooling_Manual.md'
+           -> {'charger_model': 'ABB_Terra_54', 'component': 'Cooling'}
+    """
+    basename = Path(filepath).stem  # e.g. 'ABB_Terra_54_Cooling_Manual'
+    # Remove trailing '_Manual'
+    name = re.sub(r'_Manual$', '', basename)
+    # The component is the last segment, everything before is the model
+    parts = name.rsplit('_', 1)
+    if len(parts) == 2:
+        return {"charger_model": parts[0], "component": parts[1]}
+    return {"charger_model": name, "component": "General"}
+
+
+def _build_telemetry_summary(ticket: dict) -> str:
+    """Analyze telemetry snapshots and produce a human-readable trend summary
+    that can be injected into the LLM prompt context.
+    """
+    snapshots = ticket.get("telemetry_snapshots", [])
+    if not snapshots:
+        return "No telemetry snapshot data available."
+
+    # Filter out snapshots where all values are null (unit went offline)
+    valid = [s for s in snapshots if any(
+        v is not None for k, v in s.items() if k != "timestamp"
+    )]
+    if not valid:
+        return "Unit is offline — all telemetry readings are null."
+
+    lines = [f"Telemetry trend ({len(valid)} readings from {valid[0].get('timestamp', '?')} to {valid[-1].get('timestamp', '?')}):"]
+
+    # Dynamically compute min/max/first/last/trend for every numeric key
+    numeric_keys = [
+        k for k in valid[0]
+        if k != "timestamp" and isinstance(valid[0].get(k), (int, float))
+    ]
+
+    for key in numeric_keys:
+        values = [s[key] for s in valid if s.get(key) is not None]
+        if not values:
+            continue
+        first, last = values[0], values[-1]
+        lo, hi = min(values), max(values)
+        change = last - first
+        if first != 0:
+            pct = abs(change / first) * 100
+        else:
+            pct = 0.0
+
+        direction = "stable"
+        if change > 0:
+            direction = "increasing"
+        elif change < 0:
+            direction = "decreasing"
+
+        label = key.replace('_', ' ').title()
+        lines.append(
+            f"  - {label}: {first} -> {last} (min={lo}, max={hi}, "
+            f"{direction} {pct:.1f}%)"
+        )
+
+    return "\n".join(lines)
 
 
 def _load_alerts() -> list[dict]:
@@ -137,7 +209,7 @@ def _enrich_ticket(ticket: dict) -> dict:
 
 
 def init_rag():
-    global vector_store, rag_chain
+    global vector_store, llm
     print("Initializing RAG Pipeline...")
 
     # Load alerts into memory on startup
@@ -150,42 +222,74 @@ def init_rag():
 
     embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
 
-    persist_dir = "./chroma_db"
-
-    if os.path.exists(persist_dir):
+    if os.path.exists(CHROMA_PERSIST_DIR):
         print("Loading existing Chroma DB...")
-        vector_store = Chroma(persist_directory=persist_dir, embedding_function=embeddings)
+        vector_store = Chroma(persist_directory=CHROMA_PERSIST_DIR, embedding_function=embeddings)
     else:
-        print(f"Creating new Chroma DB in {persist_dir}...")
-        loader = DirectoryLoader(MANUALS_DIR, glob="**/*.md", loader_cls=TextLoader)
-        docs = loader.load()
-        print(f"Loaded {len(docs)} manuals.")
-
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        splits = text_splitter.split_documents(docs)
-
-        vector_store = Chroma.from_documents(
-            documents=splits, embedding=embeddings, persist_directory=persist_dir
+        print(f"Creating new Chroma DB in {CHROMA_PERSIST_DIR}...")
+        # ── Fix 3: Markdown-aware splitting ──
+        # First split by markdown headers to keep sections intact,
+        # then sub-split any oversized sections with character-based splitter.
+        md_header_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=[
+                ("#", "manual_title"),
+                ("##", "doc_type"),
+                ("###", "section"),
+            ],
+            strip_headers=False,  # keep headers in the chunk text for context
+        )
+        # Sub-splitter for sections that exceed the chunk size
+        sub_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1500,     # larger chunks to keep procedures intact
+            chunk_overlap=200,
         )
 
+        all_documents: list[Document] = []
+        manual_files = list(Path(MANUALS_DIR).glob("**/*.md"))
+        print(f"Found {len(manual_files)} manual files.")
+
+        for filepath in manual_files:
+            raw_text = filepath.read_text(encoding="utf-8")
+
+            # ── Fix 2: Parse metadata from filename ──
+            file_meta = _parse_manual_metadata(str(filepath))
+
+            # Split by headers first
+            header_chunks = md_header_splitter.split_text(raw_text)
+
+            for chunk in header_chunks:
+                # Merge file-level metadata with header metadata
+                merged_meta = {**file_meta, **chunk.metadata}
+                # Also store the source filename for Fix 4
+                merged_meta["source"] = filepath.name
+
+                # Sub-split if the chunk is too large
+                if len(chunk.page_content) > 1500:
+                    sub_chunks = sub_splitter.split_text(chunk.page_content)
+                    for sc in sub_chunks:
+                        all_documents.append(Document(
+                            page_content=sc,
+                            metadata=merged_meta,
+                        ))
+                else:
+                    all_documents.append(Document(
+                        page_content=chunk.page_content,
+                        metadata=merged_meta,
+                    ))
+
+        print(f"Created {len(all_documents)} chunks from {len(manual_files)} manuals.")
+
+        vector_store = Chroma.from_documents(
+            documents=all_documents,
+            embedding=embeddings,
+            persist_directory=CHROMA_PERSIST_DIR,
+        )
+
+    # ── Fix 6: ChromaDB is now persisted to CHROMA_PERSIST_DIR ──
+    # On subsequent startups it loads from disk without re-embedding.
+    # To force a rebuild, delete the chroma_db directory.
+
     llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
-
-    system_prompt = (
-        "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
-        "You are currently helping a technician on-site with a broken EV charger.\n"
-        "Use the following retrieved context from the proprietary repair manuals to answer the technician's questions.\n"
-        "If the answer is not in the manuals, say that you don't have that specific data, but provide general electrical mechanic advice.\n"
-        "Always emphasize LOTO (Lockout/Tagout) and high-voltage safety.\n\n"
-        "Context:\n{context}\n"
-    )
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", system_prompt),
-        ("human", "{input}"),
-    ])
-
-    retriever = vector_store.as_retriever(search_kwargs={"k": 3})
-    question_answer_chain = create_stuff_documents_chain(llm, prompt)
-    rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
     print("RAG Pipeline initialized and ready!")
 
@@ -292,7 +396,7 @@ def get_ticket_checklist(ticket_id: str):
         }
 
     # Generate new checklist via RAG
-    if not rag_chain:
+    if not vector_store or not llm:
         raise HTTPException(
             status_code=500,
             detail="RAG Pipeline not initialized (Check GOOGLE_API_KEY)"
@@ -304,20 +408,51 @@ def get_ticket_checklist(ticket_id: str):
 
     try:
         model = ticket["station_info"]["model"]
+        charger_type = ticket["station_info"]["charger_type"]
+        component = ticket["prediction_details"]["failing_component"]
         error_code = ticket["prediction_details"]["expected_error_code"]
         context = ticket["prediction_details"]["telemetry_context"]
 
-        prompt = (
-            f"Create a concise, step-by-step repair checklist for a technician working on "
-            f"a '{model}' charger with expected error code '{error_code}'. "
-            f"The telemetry context is: '{context}'. "
-            f"Only output a numbered checklist of tasks to perform."
+        # ── Fix 2: Metadata-filtered retrieval ──
+        # Build a focused retrieval query (just the repair task),
+        # filtered to the correct charger model.
+        retrieval_query = (
+            f"{model} {component} repair procedure for error {error_code}"
         )
+        retriever = vector_store.as_retriever(
+            search_kwargs={
+                "k": 6,
+                "filter": {"charger_model": charger_type},
+            }
+        )
+        retrieved_docs = retriever.invoke(retrieval_query)
+        manual_context = "\n\n---\n\n".join(doc.page_content for doc in retrieved_docs)
 
-        response = rag_chain.invoke({"input": prompt})
+        # ── Fix 1: Separate retrieval from LLM prompt ──
+        # The retrieval query above is clean. Now we build the LLM prompt
+        # with the retrieved context injected into the system message.
+        checklist_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "You are the Field Tech Copilot. Use the following repair manual excerpts "
+             "to create a concise step-by-step repair checklist.\n\n"
+             "Manual Context:\n{manual_context}\n"),
+            ("human",
+             "Create a concise, step-by-step repair checklist for a technician working on "
+             "a '{model}' charger with expected error code '{error_code}'. "
+             "The telemetry context is: '{telemetry_context}'. "
+             "Only output a numbered checklist of tasks to perform."),
+        ])
+
+        chain = checklist_prompt | llm
+        response = chain.invoke({
+            "manual_context": manual_context,
+            "model": model,
+            "error_code": error_code,
+            "telemetry_context": context,
+        })
 
         # Parse the response into checklist items
-        raw_steps = response["answer"].split('\n')
+        raw_steps = response.content.split('\n')
         checklist = []
         for step in raw_steps:
             step = step.strip()
@@ -402,8 +537,15 @@ def chat_with_copilot(request: ChatRequest):
     Maintains per-ticket conversation history for multi-turn support.
     When step_idx is provided, injects the specific checklist step context
     and can auto-detect step completions via structured markers.
+
+    RAG improvements applied:
+    - Fix 1: Retrieval query is the user's question only (no prompt stuffing)
+    - Fix 2: Retrieval is filtered by charger_model metadata
+    - Fix 3: Uses markdown-aware chunks with k=6
+    - Fix 4: Source document references included in response
+    - Fix 5: Telemetry trend analysis injected into prompt context
     """
-    if not rag_chain:
+    if not vector_store or not llm:
         raise HTTPException(
             status_code=500,
             detail="RAG Pipeline not initialized (Check GOOGLE_API_KEY)"
@@ -421,26 +563,64 @@ def chat_with_copilot(request: ChatRequest):
 
         history = chat_histories[request.ticket_id]
 
-        # Build context from ticket data
-        ticket_context = ""
-        if ticket:
-            model = ticket["station_info"]["model"]
-            error_code = ticket["prediction_details"]["expected_error_code"]
-            component = ticket["prediction_details"]["failing_component"]
-            telemetry = ticket["prediction_details"]["telemetry_context"]
-            ticket_context = (
-                f"\n\nCurrent Ticket Context:\n"
-                f"- Charger: {model}\n"
-                f"- Failing Component: {component}\n"
-                f"- Expected Error Code: {error_code}\n"
-                f"- Telemetry: {telemetry}\n"
-            )
+        # ── Fix 1: Build a clean retrieval query ──
+        # Use only the user's message + current step task (if any) for retrieval.
+        # This prevents ticket context, history, and instructions from diluting
+        # the semantic search.
+        retrieval_query = request.message
+        if (request.step_idx is not None and
+                request.ticket_id in ticket_checklists and
+                0 <= request.step_idx < len(ticket_checklists[request.ticket_id])):
+            step_task = ticket_checklists[request.ticket_id][request.step_idx]["task"]
+            retrieval_query = f"{step_task}: {request.message}"
 
-        # Build checklist context when a specific step is targeted
+        # ── Fix 2: Metadata-filtered retrieval ──
+        charger_type = ticket["station_info"]["charger_type"]
+        retriever = vector_store.as_retriever(
+            search_kwargs={
+                "k": 6,  # Fix 3: increased from 3 to get more complete procedures
+                "filter": {"charger_model": charger_type},
+            }
+        )
+        retrieved_docs = retriever.invoke(retrieval_query)
+
+        # ── Fix 4: Extract source references ──
+        source_set: set[str] = set()
+        for doc in retrieved_docs:
+            src = doc.metadata.get("source", "")
+            section = doc.metadata.get("section", "")
+            if src:
+                ref = src.replace('.md', '').replace('_', ' ')
+                if section:
+                    ref = f"{ref} - {section}"
+                source_set.add(ref)
+        sources = sorted(source_set)
+
+        manual_context = "\n\n---\n\n".join(doc.page_content for doc in retrieved_docs)
+
+        # ── Build structured context for the LLM (NOT for the retriever) ──
+
+        # Ticket context
+        model = ticket["station_info"]["model"]
+        error_code = ticket["prediction_details"]["expected_error_code"]
+        component = ticket["prediction_details"]["failing_component"]
+        telemetry_text = ticket["prediction_details"]["telemetry_context"]
+        ticket_context = (
+            f"Current Ticket Context:\n"
+            f"- Charger: {model}\n"
+            f"- Failing Component: {component}\n"
+            f"- Expected Error Code: {error_code}\n"
+            f"- Telemetry Summary: {telemetry_text}\n"
+        )
+
+        # ── Fix 5: Telemetry trend analysis ──
+        telemetry_trends = _build_telemetry_summary(ticket)
+
+        # Checklist context
         checklist_context = ""
         if request.ticket_id in ticket_checklists:
             checklist = ticket_checklists[request.ticket_id]
-            checklist_overview = "\n\nRepair Checklist Overview:\n"
+            checklist_overview = "\nRepair Checklist Overview:\n"
             for i, item in enumerate(checklist):
                 status = "DONE" if item["completed"] else "PENDING"
                 marker = " <-- CURRENT STEP" if (request.step_idx is not None and i == request.step_idx) else ""
@@ -456,20 +636,20 @@ def chat_with_copilot(request: ChatRequest):
                 if current_step.get("notes"):
                     checklist_context += f"Step notes: {current_step['notes']}\n"
 
-        # Build conversation history string (last 10 messages for context window)
+        # Conversation history (last 10 messages)
         history_str = ""
         recent_history = history[-10:]
         if recent_history:
-            history_str = "\n\nConversation History:\n"
+            history_str = "\nConversation History:\n"
             for msg in recent_history:
                 role_label = "Technician" if msg["role"] == "user" else "Copilot"
                 history_str += f"{role_label}: {msg['content']}\n"
 
-        # Compose the full input with ticket context, checklist context, and history
+        # Image context
         image_context = ""
         if request.image_base64:
             image_context = (
-                "\n\n[The technician has attached a photo of the issue. "
+                "\n[The technician has attached a photo of the issue. "
                 "They are showing you what they see on-site. "
                 "Please acknowledge the photo and provide visual diagnosis guidance "
                 "based on the repair context above.]\n"
@@ -487,16 +667,43 @@ def chat_with_copilot(request: ChatRequest):
                 "Do NOT include the marker if they are just asking questions or need more guidance.\n"
             ).format(step_idx=request.step_idx)
 
-        full_input = (
-            f"{ticket_context}{checklist_context}{history_str}"
-            f"{image_context}{step_completion_instruction}"
-            f"\nTechnician's current question: {request.message}"
-        )
+        # ── Fix 1: Assemble the prompt with clean separation ──
+        # System message gets: manual context + ticket context + telemetry + checklist + history
+        # Human message gets: ONLY the technician's question
+        chat_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
+             "You are currently helping a technician on-site with a broken EV charger.\n"
+             "Use the following retrieved context from the proprietary repair manuals to answer "
+             "the technician's questions.\n"
+             "If the answer is not in the manuals, say that you don't have that specific data, "
+             "but provide general electrical mechanic advice.\n"
+             "Always emphasize LOTO (Lockout/Tagout) and high-voltage safety.\n"
+             "Keep answers concise and field-practical.\n\n"
+             "Repair Manual Context:\n{manual_context}\n\n"
+             "{ticket_context}\n"
+             "{telemetry_trends}\n"
+             "{checklist_context}\n"
+             "{history_str}\n"
+             "{image_context}\n"
+             "{step_completion_instruction}\n"),
+            ("human", "{question}"),
+        ])
 
-        response = rag_chain.invoke({"input": full_input})
+        chain = chat_prompt | llm
+        response = chain.invoke({
+            "manual_context": manual_context,
+            "ticket_context": ticket_context,
+            "telemetry_trends": telemetry_trends,
+            "checklist_context": checklist_context,
+            "history_str": history_str,
+            "image_context": image_context,
+            "step_completion_instruction": step_completion_instruction,
+            "question": request.message,
+        })
 
         now = datetime.now(timezone.utc).isoformat()
-        answer_text = response["answer"]
+        answer_text = response.content
 
         # Parse and process [STEP_COMPLETE:N] markers
         completed_steps: list[int] = []
@@ -532,6 +739,7 @@ def chat_with_copilot(request: ChatRequest):
             ticket_id=request.ticket_id,
             history_length=len(history),
             completed_steps=completed_steps,
+            sources=sources,
         )
     except HTTPException:
         raise
