@@ -19,6 +19,18 @@ export interface Ticket {
         completed: boolean;
         aiNote?: string;
     }>;
+    checklistProgress?: {
+        total: number;
+        completed: number;
+        percentage: number;
+    };
+    telemetryHistory?: Array<{
+        timestamp: string;
+        pressure: number;
+        temperature: number;
+        voltage: number;
+        current: number;
+    }>;
 }
 
 export interface ChatMessage {

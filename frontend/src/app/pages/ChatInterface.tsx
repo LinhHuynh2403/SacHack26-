@@ -28,6 +28,10 @@ export function ChatInterface() {
   useEffect(() => {
     async function loadData() {
       if (!ticketId) return;
+      // Clear messages immediately when step changes to give a "fresh chat" feel
+      setMessages([]);
+      setLoading(true);
+
       try {
         const data = await fetchTicket(ticketId);
         const mappedTicket: Ticket = {
@@ -43,8 +47,10 @@ export function ChatInterface() {
         };
         setTicket(mappedTicket);
 
-        // Fetch history
-        const historyData = await fetchChatHistory(ticketId);
+        // Fetch history for this specific step
+        const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
+        const historyData = await fetchChatHistory(ticketId, stepIdx);
+
         if (historyData.history && historyData.history.length > 0) {
           const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
             id: `history-${idx}`,
@@ -55,24 +61,22 @@ export function ChatInterface() {
           setMessages(mappedMessages);
         } else {
           // Initial AI greeting if no history
-          let greetingText = `Hi Tech, Data Pigeon predicted a ${mappedTicket.component} failure on ${mappedTicket.stationId}. Based on the manual, Step 1 is to locate the pressure valve behind Panel C. Are you ready to begin?`;
+          // Fetch the checklist to get the actual task name for this step
+          const checklistData = await fetchChecklist(ticketId);
+          const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
 
-          if (stepId) {
-            const checklistData = await fetchChecklist(ticketId);
-            const stepIndex = parseInt(stepId);
-            const currentStep = checklistData.checklist?.[stepIndex];
-            if (currentStep) {
-              greetingText = `I see you need help with Step ${stepIndex + 1}: ${currentStep.task}. \n\nCan you describe what issue you're encountering? You can also take a photo to show me the problem.`;
-            }
+          let greetingText = `Hi Tech! I'm your Data Pigeon Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
+
+          if (currentStep && stepIdx !== undefined) {
+            greetingText = `Hi Tech! I'm ready to help specifically with Step ${stepIdx + 1}: **${currentStep.task}**. Let me know if you need clarification or specific values from the manual.`;
           }
 
-          const greeting: ChatMessage = {
-            id: "1",
-            role: "ai",
+          setMessages([{
+            id: '1',
+            role: 'ai',
             content: greetingText,
-            timestamp: new Date().toISOString(),
-          };
-          setMessages([greeting]);
+            timestamp: new Date().toISOString()
+          }]);
         }
       } catch (error) {
         console.error("Failed to fetch ticket or history:", error);
@@ -200,8 +204,11 @@ export function ChatInterface() {
       // If there's an image, we append a note to the message so the backend has context (MVP shim)
       const finalMessage = hasImage ? `[Image attached]: ${messageText}` : messageText;
 
+      // Pass the step index if we are in a step-specific chat
+      const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
+
       // Call standard fetch to FastAPI RAG backend
-      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN");
+      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx);
 
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
@@ -241,9 +248,12 @@ export function ChatInterface() {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white sticky top-0 z-10 shadow-md">
         <div className="px-4 py-4">
-          <Link to={`/ticket/${ticketId}`} className="flex items-center gap-2 mb-3 opacity-90">
+          <Link
+            to={stepId ? `/checklist/${ticketId}` : `/ticket/${ticketId}`}
+            className="flex items-center gap-2 mb-3 opacity-90"
+          >
             <ArrowLeft className="w-5 h-5" />
-            <span>Back to Details</span>
+            <span>Back to {stepId ? "Checklist" : "Details"}</span>
           </Link>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
@@ -406,7 +416,7 @@ export function ChatInterface() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === "Enter" && handleSend()}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
               placeholder="Type or speak your message..."
               className="flex-1 bg-transparent outline-none text-gray-800 placeholder-gray-500"
             />

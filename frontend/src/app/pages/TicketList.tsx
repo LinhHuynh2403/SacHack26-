@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router";
 import { Ticket } from "../types";
 import { fetchTickets } from "../api";
-import { AlertCircle, ChevronRight, Clock, MapPin, Wrench, CheckCircle, FileText } from "lucide-react";
+import { AlertCircle, ChevronRight, Clock, MapPin, Wrench, CheckCircle, FileText, PlayCircle } from "lucide-react";
 
 export function TicketList() {
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
@@ -27,8 +27,9 @@ export function TicketList() {
           assignedTo: "Tech #4521",
           timestamp: alert.timestamp,
           location: alert.station_info.location,
-          completedDate: alert.status === 'completed' ? alert.timestamp : undefined, // Simplification
-          aiNotes: [] // Backend doesn't provide these yet in basic list
+          completedDate: alert.status === 'completed' ? alert.timestamp : undefined,
+          aiNotes: alert.ai_notes || [],
+          checklistProgress: alert.checklist_progress
         }));
 
         setActiveTickets(allTickets.filter(t => t.status !== 'resolved'));
@@ -43,17 +44,10 @@ export function TicketList() {
   }, []);
 
   const priorityColors: Record<string, string> = {
-    critical: "bg-red-500",
-    high: "bg-orange-500",
-    medium: "bg-yellow-500",
-    low: "bg-blue-500",
-  };
-
-  const priorityTextColors: Record<string, string> = {
-    critical: "text-red-600",
-    high: "text-orange-600",
-    medium: "text-yellow-600",
-    low: "text-blue-600",
+    critical: "#ef4444", // red-500
+    high: "#f97316",     // orange-500
+    medium: "#eab308",   // yellow-500
+    low: "#3b82f6",      // blue-500
   };
 
   const currentTickets = activeTab === "active" ? activeTickets : pastTickets;
@@ -143,10 +137,12 @@ export function TicketList() {
             className="block bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden active:scale-98 transition-transform"
           >
             {/* Priority Indicator */}
-            <div className={`h-1 ${activeTab === "active"
-              ? priorityColors[ticket.priority]
-              : "bg-green-500"
-              }`}></div>
+            <div
+              className="h-1"
+              style={{
+                backgroundColor: activeTab === "active" ? priorityColors[ticket.priority] : "#22c55e"
+              }}
+            ></div>
 
             <div className="p-4">
               {/* Header */}
@@ -156,20 +152,31 @@ export function TicketList() {
                     <span className="font-bold text-gray-900 text-lg">
                       {ticket.stationId}
                     </span>
-                    {activeTab === "active" ? (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded-full ${priorityTextColors[ticket.priority]} bg-opacity-10`}
-                        style={{
-                          backgroundColor: `${priorityColors[ticket.priority]}20`,
-                        }}
-                      >
-                        {ticket.priority.toUpperCase()}
-                      </span>
-                    ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full text-green-700 bg-green-100">
-                        RESOLVED
-                      </span>
-                    )}
+                    <div className="flex gap-1.5">
+                      {activeTab === "active" ? (
+                        <>
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-bold"
+                            style={{
+                              backgroundColor: `${priorityColors[ticket.priority]}20`,
+                              color: priorityColors[ticket.priority]
+                            }}
+                          >
+                            {ticket.priority.toUpperCase()}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${ticket.status === 'in-progress'
+                            ? 'text-blue-700 bg-blue-100'
+                            : 'text-gray-600 bg-gray-100'
+                            }`}>
+                            {ticket.status === 'in-progress' ? 'IN PROGRESS' : 'ASSIGNED'}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-xs px-2 py-0.5 rounded-full text-green-700 bg-green-100 font-bold">
+                          RESOLVED
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 text-gray-600">
                     <Wrench className="w-4 h-4" />
@@ -189,6 +196,28 @@ export function TicketList() {
                   {ticket.predictedFailure}
                 </p>
               </div>
+
+              {/* Progress Bar - Only for In-Progress Active Tickets */}
+              {activeTab === "active" && ticket.status === "in-progress" && ticket.checklistProgress && (
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2 text-blue-700">
+                      <PlayCircle className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">In Progress</span>
+                    </div>
+                    <span className="text-xs font-bold text-blue-800">{ticket.checklistProgress.percentage}%</span>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${ticket.checklistProgress.percentage}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-[10px] font-medium text-blue-600 uppercase">
+                    Step {ticket.checklistProgress.completed} of {ticket.checklistProgress.total}
+                  </p>
+                </div>
+              )}
 
               {/* AI Notes - Only for Past Tickets */}
               {activeTab === "past" && ticket.aiNotes && ticket.aiNotes.length > 0 && (

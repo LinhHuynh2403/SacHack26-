@@ -12,13 +12,6 @@ import {
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// Temporary fallback telemetry until backend supports it
-const MOCK_TELEMETRY = [
-  { timestamp: "18:30", pressure: 3.2, temperature: 42, voltage: 232, current: 15.5 },
-  { timestamp: "18:40", pressure: 3.1, temperature: 45, voltage: 231, current: 15.6 },
-  { timestamp: "18:50", pressure: 2.8, temperature: 52, voltage: 230, current: 15.4 },
-  { timestamp: "19:00", pressure: 2.2, temperature: 68, voltage: 228, current: 15.8 },
-];
 
 export function TicketDetail() {
   const { ticketId } = useParams();
@@ -36,11 +29,26 @@ export function TicketDetail() {
           stationId: alert.station_info.charger_id,
           component: alert.prediction_details.failing_component,
           priority: alert.urgency as any,
-          status: alert.status === 'completed' ? 'resolved' : 'assigned',
+          status: alert.status === "completed" ? "resolved" :
+            alert.status === "in_progress" ? "in-progress" : "assigned",
           predictedFailure: alert.prediction_details.telemetry_context,
           assignedTo: "Tech #4521",
           timestamp: alert.timestamp,
           location: alert.station_info.location,
+          telemetryHistory: (alert.telemetry_history || alert.telemetry_snapshots || [])
+            .filter((s: any) =>
+              s.temperature_c !== null ||
+              s.connector_temp_c !== null ||
+              s.pressure_bar !== null ||
+              s.voltage_dc !== null
+            )
+            .map((s: any) => ({
+              timestamp: s.timestamp.includes('T') ? new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : s.timestamp,
+              temperature: s.temperature ?? s.temperature_c ?? s.connector_temp_c ?? 0,
+              pressure: s.pressure ?? s.pressure_bar ?? 0,
+              voltage: s.voltage ?? s.voltage_dc ?? s.voltage_ac ?? 0,
+              current: s.current ?? s.current_a ?? 0
+            }))
         };
         setTicket(mappedTicket);
 
@@ -56,7 +64,7 @@ export function TicketDetail() {
     loadData();
   }, [ticketId]);
 
-  const telemetry = MOCK_TELEMETRY;
+  const telemetry = ticket?.telemetryHistory || [];
 
   if (isLoading) {
     return <div className="p-8 text-center text-gray-500">Loading details...</div>;
