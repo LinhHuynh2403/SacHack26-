@@ -61,6 +61,7 @@ class TicketStatusUpdateRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     ticket_id: str
+    image_base64: Optional[str] = None  # base64-encoded JPEG from camera/photo input
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
@@ -441,7 +442,16 @@ def chat_with_copilot(request: ChatRequest):
                 history_str += f"{role_label}: {msg['content']}\n"
 
         # Compose the full input with ticket context and history
-        full_input = f"{ticket_context}{history_str}\nTechnician's current question: {request.message}"
+        image_context = ""
+        if request.image_base64:
+            image_context = (
+                "\n\n[The technician has attached a photo of the issue. "
+                "They are showing you what they see on-site. "
+                "Please acknowledge the photo and provide visual diagnosis guidance "
+                "based on the repair context above.]\n"
+            )
+
+        full_input = f"{ticket_context}{history_str}{image_context}\nTechnician's current question: {request.message}"
 
         response = rag_chain.invoke({"input": full_input})
 

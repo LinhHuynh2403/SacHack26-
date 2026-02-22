@@ -145,6 +145,27 @@ export function TicketList() {
 
       {/* Ticket List */}
       <div className="px-4 py-4 space-y-3">
+        {currentTickets.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            {activeTab === "active" ? (
+              <>
+                <CheckCircle className="w-12 h-12 text-green-400 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-700 mb-1">All clear!</h3>
+                <p className="text-sm text-gray-500 max-w-xs">
+                  No active maintenance tickets right now. All chargers are operating normally.
+                </p>
+              </>
+            ) : (
+              <>
+                <FileText className="w-12 h-12 text-gray-300 mb-4" />
+                <h3 className="text-lg font-semibold text-gray-700 mb-1">No past repairs</h3>
+                <p className="text-sm text-gray-500 max-w-xs">
+                  Completed repairs will appear here with AI notes and learnings.
+                </p>
+              </>
+            )}
+          </div>
+        )}
         {currentTickets.map((ticket: Ticket) => (
           <Link
             key={ticket.id}
