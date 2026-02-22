@@ -27,7 +27,7 @@
     --color-box-error-text: #852221;
 
     /* Text */
-    --color-text-primary: #000000;
+    --color-text-primary: ##595959;
     --color-text-secondary: #595959;
 
     /* Ticket Detail Header BG */
@@ -52,4 +52,5 @@
 body {
     background-color: var(--color-bg-app);
     -webkit-font-smoothing: antialiased;
+    font-family: 'SF Pro', -apple-system, BlinkMacSystemFont, "Segoe UI", SF Pro, Helvetica, Arial, sans-serif;
 }
