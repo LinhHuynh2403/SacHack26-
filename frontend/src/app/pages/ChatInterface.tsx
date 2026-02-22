@@ -294,7 +294,7 @@ export function ChatInterface() {
         )}
 
         {/* Extra padding at the bottom so the last message isn't hidden by the feedback buttons */}
-        <div ref={messagesEndRef} className="h-32" />
+        <div ref={messagesEndRef} className="h-64" />
       </div>
 
       {/* Floating Feedback Buttons (Only shown after user prompts and AI replies) */}
