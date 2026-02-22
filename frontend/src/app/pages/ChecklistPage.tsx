@@ -1,16 +1,11 @@
 import { useState, useEffect } from "react";
-import { Link, useParams, useNavigate } from "react-router";
+import { useParams, useNavigate } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist, updateChecklistItem, updateTicketStatus } from "../api";
 import { mapBackendTicket } from "../mapper";
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Circle,
-  HelpCircle,
-  RefreshCw,
-} from "lucide-react";
+import { ArrowLeft, Sparkles, Check, RefreshCw } from "lucide-react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { SwipeToEnd } from "../components/SwipeToEnd";
 
 export function ChecklistPage() {
   const { ticketId } = useParams();
@@ -31,7 +26,7 @@ export function ChecklistPage() {
       const checklistData = await fetchChecklist(ticketId);
       if (checklistData && checklistData.checklist) {
         setSteps(checklistData.checklist.map((s: any, idx: number) => ({
-          id: idx, // Use index for backend
+          id: idx,
           title: s.task,
           description: s.task,
           completed: s.completed,
@@ -42,7 +37,7 @@ export function ChecklistPage() {
       }
     } catch (err: any) {
       console.error("Failed to load checklist", err);
-      setError("We couldn't generate your repair checklist. This usually happens if the AI service is disconnected.");
+      setError("We couldn't generate your repair checklist.");
       setSteps([]);
     } finally {
       setIsLoading(false);
@@ -53,7 +48,6 @@ export function ChecklistPage() {
     loadData();
   }, [ticketId]);
 
-
   const handleCompleteRepair = async () => {
     if (!ticketId) return;
     try {
@@ -63,37 +57,6 @@ export function ChecklistPage() {
       console.error("Failed to complete repair", error);
     }
   };
-
-
-  if (isLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
-        <p className="text-gray-600 font-medium">Generating your repair checklist...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
-        <ErrorState
-          title="Checklist Error"
-          message={error}
-          onRetry={loadData}
-        />
-      </div>
-    );
-  }
-
-  if (!ticket) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center text-gray-500">
-        Ticket not found
-      </div>
-    );
-  }
-
 
   const toggleStepCompletion = async (index: number) => {
     const step = steps[index];
@@ -117,109 +80,117 @@ export function ChecklistPage() {
     navigate(`/chat/${ticketId}?step=${stepId}`);
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC]">
+        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-600 font-medium">Generating your repair checklist...</p>
+      </div>
+    );
+  }
+
+  if (error || !ticket) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] p-4 pt-12 text-center flex flex-col items-center justify-center">
+        <ErrorState title="Checklist Error" message={error || "Ticket not found"} onRetry={loadData} />
+      </div>
+    );
+  }
+
   const completedCount = steps.filter((s) => s.completed).length;
   const totalCount = steps.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="px-4 py-4">
-          <Link to={`/ticket/${ticketId}`} className="flex items-center gap-2 text-blue-600 mb-3">
-            <ArrowLeft className="w-5 h-5" />
-            <span className="font-medium">Back to Details</span>
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{ticket.stationId}</h1>
-            <p className="text-gray-600 mt-1">{ticket.component} Repair</p>
-          </div>
+    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-28">
+
+      {/* Yellow Header matches Figma height & color */}
+      <div className="w-full bg-[#FFF28B] pt-14 pb-12 px-5 shadow-sm relative z-0">
+        <div className="flex items-center justify-between mb-2">
+          <button onClick={() => navigate(-1)} className="active:scale-95 transition-transform">
+            <ArrowLeft className="w-6 h-6 text-black" />
+          </button>
+          <button className="text-[16px] font-medium text-black">
+            Share
+          </button>
         </div>
+        <h1 className="text-[20px] font-semibold text-black tracking-[0.15px]">
+          Repair Checklist
+        </h1>
       </div>
 
-      {/* Progress Section */}
-      <div className="px-4 py-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-blue-600 text-white px-4 py-3">
-            <h3 className="font-semibold">Repair Checklist</h3>
-            <div className="flex items-center gap-2 mt-2">
-              <div className="flex-1 bg-blue-700 rounded-full h-2">
-                <div
-                  className="bg-white h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                ></div>
-              </div>
-              <span className="text-sm font-medium">
-                {completedCount}/{totalCount}
-              </span>
-            </div>
+      <div className="relative z-10 -mt-6">
+        {/* Progress Tracker Card */}
+        <div className="bg-white rounded-[8px] shadow-[0px_0px_20px_rgba(0,0,0,0.10)] p-5 mb-6 mx-4">
+          <p className="text-[10px] font-bold text-[#49454F] tracking-wide mb-2 uppercase font-['SF_Pro']">
+            Your process
+          </p>
+          <div className="flex items-end justify-between mb-3">
+            <span className="text-[22px] font-bold text-[#0088FF] font-['SF_Pro']">
+              {completedCount}/{totalCount}
+            </span>
+            <span className="text-[12px] text-[#8D8D8D] font-medium">
+              {Math.round(progress)} %
+            </span>
           </div>
-
-          <div className="divide-y divide-gray-200">
-            {steps.map((step, index) => (
-              <div
-                key={index}
-                className={`p-4 ${step.completed ? "bg-green-50" : "bg-white"}`}
-              >
-                <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => toggleStepCompletion(index)}
-                    className="mt-0.5 flex-shrink-0"
-                  >
-                    {step.completed ? (
-                      <CheckCircle2 className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <Circle className="w-6 h-6 text-gray-400" />
-                    )}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <h4
-                      className={`font-medium ${step.completed
-                        ? "text-green-900 line-through"
-                        : "text-gray-900"
-                        }`}
-                    >
-                      Step {index + 1}: {step.title}
-                    </h4>
-                    <p
-                      className={`text-sm mt-1 ${step.completed ? "text-green-700" : "text-gray-600"
-                        }`}
-                    >
-                      {step.description}
-                    </p>
-
-                    {!step.completed && (
-                      <button
-                        onClick={() => handleAskAI(index)}
-                        className="mt-2 flex items-center gap-2 text-blue-600 text-sm font-medium active:scale-95 transition-transform"
-                      >
-                        <HelpCircle className="w-4 h-4" />
-                        Need help? Ask AI
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div className="w-full bg-[#D9D9D9] h-[9px] rounded-full overflow-hidden">
+            <div
+              className="bg-[#0088FF] h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            ></div>
           </div>
+        </div>
 
-          {progress === 100 && (
-            <div className="p-6 bg-gray-50 border-t border-gray-200">
+        {/* Checklist Steps */}
+        <div className="space-y-4 px-4">
+          {steps.map((step, index) => (
+            <div
+              key={index}
+              className="bg-[#F8FAFC] rounded-[20px] shadow-[0px_0px_20px_rgba(0,0,0,0.10)] p-5 flex items-start gap-4"
+            >
+              {/* Checkbox (Custom styled to match Figma) */}
               <button
-                onClick={handleCompleteRepair}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                onClick={() => toggleStepCompletion(index)}
+                className="mt-0.5 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-[3px] border-[2px] transition-all"
+                style={{
+                  borderColor: step.completed ? "#0088FF" : "#49454F",
+                  backgroundColor: step.completed ? "#0088FF" : "transparent"
+                }}
               >
-                <CheckCircle2 className="w-6 h-6" />
-                Complete the Repair
+                {step.completed && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
               </button>
-              <p className="text-center text-gray-500 text-xs mt-3">
-                All steps validated. Click to finalize ticket.
-              </p>
+
+              {/* Text Content */}
+              <div className="flex-1 min-w-0">
+                <h3 className={`text-[14px] font-medium leading-tight mb-1 ${step.completed ? "text-gray-500 line-through" : "text-black"}`}>
+                  {step.title}
+                </h3>
+                <p className={`text-[13px] leading-relaxed ${step.completed ? "text-gray-400" : "text-black"}`}>
+                  {step.description}
+                </p>
+              </div>
+
+              {/* AI Sparkle Action Button */}
+              {!step.completed && (
+                <button
+                  onClick={() => handleAskAI(index)}
+                  className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-blue-50 active:scale-90 transition-transform"
+                >
+                  <Sparkles className="w-[20px] h-[20px] text-[#1271BD]" fill="#1271BD" />
+                </button>
+              )}
             </div>
-          )}
+          ))}
         </div>
       </div>
+
+      {/* Sticky Bottom Action (Swipe to End) */}
+      {progress === 100 && (
+        <div className="fixed bottom-6 w-full px-6 z-50 flex justify-center animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <SwipeToEnd onComplete={handleCompleteRepair} />
+        </div>
+      )}
+
     </div>
   );
 }
