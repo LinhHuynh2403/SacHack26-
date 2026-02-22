@@ -5,14 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
-# Ensure pysqlite3 is used if we are on a system with old sqlite3 (like some cloud providers)
-try:
-    import pysqlite3
-    import sys
-    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
-except ImportError:
-    pass
-
 # LangChain and vector store imports
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
