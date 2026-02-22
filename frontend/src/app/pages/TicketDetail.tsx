@@ -71,6 +71,41 @@ export function TicketDetail() {
 
   const latestData = telemetry?.[telemetry.length - 1];
 
+  // Dynamic threshold evaluation for telemetry cards
+  const getTemperatureStatus = (temp: number) => {
+    if (temp > 60) return { label: "Critical", range: ">60°C", color: "red", Icon: TrendingUp };
+    if (temp > 50) return { label: "Above normal", range: "35-50°C", color: "orange", Icon: TrendingUp };
+    if (temp < 20) return { label: "Below normal", range: "35-50°C", color: "blue", Icon: TrendingDown };
+    return { label: "Normal range", range: "35-50°C", color: "green", Icon: undefined };
+  };
+
+  const getPressureStatus = (pressure: number) => {
+    if (pressure < 1.5) return { label: "Critical low", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
+    if (pressure < 2.5) return { label: "Below normal", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
+    if (pressure > 3.5) return { label: "Above normal", range: "2.5-3.5 bar", color: "orange", Icon: TrendingUp };
+    return { label: "Normal range", range: "2.5-3.5 bar", color: "green", Icon: undefined };
+  };
+
+  const getVoltageStatus = (voltage: number) => {
+    if (voltage < 380) return { label: "Below normal", range: "390-410V", color: "red", Icon: TrendingDown };
+    if (voltage < 390) return { label: "Slightly low", range: "390-410V", color: "orange", Icon: TrendingDown };
+    if (voltage > 410) return { label: "Above normal", range: "390-410V", color: "orange", Icon: TrendingUp };
+    return { label: "Normal range", range: "390-410V", color: "blue", Icon: undefined };
+  };
+
+  const getCurrentStatus = (current: number) => {
+    if (current > 200) return { label: "High draw", range: "<150A", color: "orange", Icon: TrendingUp };
+    if (current > 150) return { label: "Elevated", range: "<150A", color: "orange", Icon: TrendingUp };
+    return { label: "Normal range", range: "<150A", color: "blue", Icon: undefined };
+  };
+
+  const colorMap: Record<string, { bg: string; border: string; label: string; value: string; text: string }> = {
+    red: { bg: "bg-red-50", border: "border-red-200", label: "text-red-700", value: "text-red-900", text: "text-red-600" },
+    orange: { bg: "bg-orange-50", border: "border-orange-200", label: "text-orange-700", value: "text-orange-900", text: "text-orange-600" },
+    blue: { bg: "bg-blue-50", border: "border-blue-200", label: "text-blue-700", value: "text-blue-900", text: "text-blue-600" },
+    green: { bg: "bg-green-50", border: "border-green-200", label: "text-green-700", value: "text-green-900", text: "text-green-600" },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
       {/* Header */}
@@ -136,51 +171,64 @@ export function TicketDetail() {
           </p>
 
           {/* Current Readings */}
-          {latestData && (
+          {latestData && (() => {
+            const tempStatus = getTemperatureStatus(latestData.temperature);
+            const pressureStatus = getPressureStatus(latestData.pressure);
+            const voltageStatus = getVoltageStatus(latestData.voltage);
+            const currentStatus = getCurrentStatus(latestData.current);
+            const tc = colorMap[tempStatus.color];
+            const pc = colorMap[pressureStatus.color];
+            const vc = colorMap[voltageStatus.color];
+            const cc = colorMap[currentStatus.color];
+
+            return (
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
+              <div className={`${tc.bg} border ${tc.border} rounded-md p-3`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-orange-700">Temperature</span>
-                  <TrendingUp className="w-4 h-4 text-orange-600" />
+                  <span className={`text-xs ${tc.label}`}>Temperature</span>
+                  {tempStatus.Icon && <tempStatus.Icon className={`w-4 h-4 ${tc.text}`} />}
                 </div>
-                <p className="text-2xl font-bold text-orange-900 mt-1">
+                <p className={`text-2xl font-bold ${tc.value} mt-1`}>
                   {latestData.temperature}°C
                 </p>
-                <p className="text-xs text-orange-600 mt-1">Above normal (35-50°C)</p>
+                <p className={`text-xs ${tc.text} mt-1`}>{tempStatus.label} ({tempStatus.range})</p>
               </div>
 
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className={`${pc.bg} border ${pc.border} rounded-md p-3`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-red-700">Pressure</span>
-                  <TrendingDown className="w-4 h-4 text-red-600" />
+                  <span className={`text-xs ${pc.label}`}>Pressure</span>
+                  {pressureStatus.Icon && <pressureStatus.Icon className={`w-4 h-4 ${pc.text}`} />}
                 </div>
-                <p className="text-2xl font-bold text-red-900 mt-1">
+                <p className={`text-2xl font-bold ${pc.value} mt-1`}>
                   {latestData.pressure} bar
                 </p>
-                <p className="text-xs text-red-600 mt-1">Below normal (2.5-3.5 bar)</p>
+                <p className={`text-xs ${pc.text} mt-1`}>{pressureStatus.label} ({pressureStatus.range})</p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className={`${vc.bg} border ${vc.border} rounded-md p-3`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700">Voltage</span>
+                  <span className={`text-xs ${vc.label}`}>Voltage</span>
+                  {voltageStatus.Icon && <voltageStatus.Icon className={`w-4 h-4 ${vc.text}`} />}
                 </div>
-                <p className="text-2xl font-bold text-blue-900 mt-1">
+                <p className={`text-2xl font-bold ${vc.value} mt-1`}>
                   {latestData.voltage}V
                 </p>
-                <p className="text-xs text-blue-600 mt-1">Normal range</p>
+                <p className={`text-xs ${vc.text} mt-1`}>{voltageStatus.label} ({voltageStatus.range})</p>
               </div>
 
-              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className={`${cc.bg} border ${cc.border} rounded-md p-3`}>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-blue-700">Current</span>
+                  <span className={`text-xs ${cc.label}`}>Current</span>
+                  {currentStatus.Icon && <currentStatus.Icon className={`w-4 h-4 ${cc.text}`} />}
                 </div>
-                <p className="text-2xl font-bold text-blue-900 mt-1">
+                <p className={`text-2xl font-bold ${cc.value} mt-1`}>
                   {latestData.current}A
                 </p>
-                <p className="text-xs text-blue-600 mt-1">Normal range</p>
+                <p className={`text-xs ${cc.text} mt-1`}>{currentStatus.label} ({currentStatus.range})</p>
               </div>
             </div>
-          )}
+            );
+          })()}
 
           {/* Charts */}
           {telemetry && (

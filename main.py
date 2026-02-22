@@ -61,6 +61,7 @@ class TicketStatusUpdateRequest(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     ticket_id: str
+    image_base64: Optional[str] = None  # base64-encoded JPEG from camera/photo input
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
@@ -168,7 +169,7 @@ def init_rag():
     llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
 
     system_prompt = (
-        "You are the Data Pigeon Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
+        "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
         "You are currently helping a technician on-site with a broken EV charger.\n"
         "Use the following retrieved context from the proprietary repair manuals to answer the technician's questions.\n"
         "If the answer is not in the manuals, say that you don't have that specific data, but provide general electrical mechanic advice.\n"
@@ -196,7 +197,7 @@ async def lifespan(app: FastAPI):
     init_rag()
     yield
 
-app = FastAPI(title="Data Pigeon Copilot API", lifespan=lifespan)
+app = FastAPI(title="Field Tech Copilot API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -216,7 +217,7 @@ app.add_middleware(
 @app.get("/api/tickets")
 def get_tickets(status: Optional[str] = Query(None, description="Filter by status")):
     """
-    Returns the simulated predictive alerts from Data Pigeon.
+    Returns the simulated predictive alerts.
     Sorted by urgency (critical first) and probability score.
     Optionally filter by status (e.g., ?status=completed).
     """
@@ -441,7 +442,16 @@ def chat_with_copilot(request: ChatRequest):
                 history_str += f"{role_label}: {msg['content']}\n"
 
         # Compose the full input with ticket context and history
-        full_input = f"{ticket_context}{history_str}\nTechnician's current question: {request.message}"
+        image_context = ""
+        if request.image_base64:
+            image_context = (
+                "\n\n[The technician has attached a photo of the issue. "
+                "They are showing you what they see on-site. "
+                "Please acknowledge the photo and provide visual diagnosis guidance "
+                "based on the repair context above.]\n"
+            )
+
+        full_input = f"{ticket_context}{history_str}{image_context}\nTechnician's current question: {request.message}"
 
         response = rag_chain.invoke({"input": full_input})
 

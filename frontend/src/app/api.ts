@@ -1,5 +1,8 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
+// For production, set VITE_API_BASE_URL to your Render backend URL:
+// e.g. https://sachack26-backend.onrender.com/api
+
 // Fetch all tickets
 export async function fetchTickets() {
     const response = await fetch(`${API_BASE_URL}/tickets`);
@@ -62,12 +65,18 @@ export async function updateChecklistItem(ticketId: string, index: number, compl
 }
 
 // Send a chat message to the RAG Copilot
-export async function sendChatMessage(message: string, ticketId: string, stepIdx?: number) {
+export async function sendChatMessage(message: string, ticketId: string, stepIdx?: number, imageBase64?: string) {
     // We append the step context to the message if it exists, since the backend 
     // ChatRequest currently expects just `message` and `ticket_id`
     const finalMessage = stepIdx !== undefined
         ? `[Regarding Checklist Step ${stepIdx + 1}]: ${message}`
         : message;
+
+    // Strip the data URL prefix (e.g. "data:image/jpeg;base64,") to send raw base64
+    let cleanedImage: string | undefined;
+    if (imageBase64) {
+        cleanedImage = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    }
 
     const response = await fetch(`${API_BASE_URL}/chat`, {
         method: "POST",
@@ -77,7 +86,8 @@ export async function sendChatMessage(message: string, ticketId: string, stepIdx
         // Matches ChatRequest Pydantic model
         body: JSON.stringify({
             message: finalMessage,
-            ticket_id: ticketId
+            ticket_id: ticketId,
+            image_base64: cleanedImage || null,
         }),
     });
 

@@ -1,12 +1,12 @@
-# Data Pigeon Field Tech Copilot
+# Field Tech Copilot
 
-An AI-powered mobile assistant for EV maintenance technicians, built for the **Data Pigeon AI Incident Response Hackathon** (SacHack 2026).
+An AI-powered mobile assistant for EV maintenance technicians, built for the **SacHack 2026 AI Incident Response Hackathon**.
 
 ## The Mission
 
-Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. While Data Pigeon provides the predictive layer to identify these failures *before* they cause downtime, there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
+Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. Predictive analytics can identify these failures *before* they cause downtime, but there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
 
-The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take Data Pigeon's predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
+The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
 
 ## How it Works
 
@@ -24,7 +24,7 @@ The **Field Tech Copilot** bridges this gap. It is an intelligent support agent 
 
 ## Tech Stack
 
-### Backend
+### Backend (Deployed on Render)
 - **Runtime:** Python 3.10+
 - **Framework:** FastAPI + Uvicorn
 - **AI/LLM:** Google Gemini (`gemini-3-flash-preview`) via LangChain
@@ -32,15 +32,15 @@ The **Field Tech Copilot** bridges this gap. It is an intelligent support agent 
 - **Validation:** Pydantic v2
 - **State Management:** In-memory (dict-based, resets on server restart)
 
-### Frontend
+### Frontend (Deployed on Vercel)
 - **Framework:** React 19 + TypeScript
 - **Build Tool:** Vite
-- **Styling:** Tailwind CSS v4 + shadcn/ui (Radix UI primitives)
+- **Styling:** Tailwind CSS v4
 - **Routing:** React Router v7
 - **Charts:** Recharts (telemetry visualization)
 - **Animations:** Motion (Framer Motion)
-- **Additional UI:** Material UI, Lucide icons, Sonner (toasts)
-- **PWA:** Configured as a Progressive Web App ("DP Copilot") for mobile field use with offline-capable service worker
+- **Icons:** Lucide React
+- **PWA:** Configured as a Progressive Web App for mobile field use with offline-capable service worker
 
 ## API Endpoints
 
@@ -51,7 +51,7 @@ The **Field Tech Copilot** bridges this gap. It is an intelligent support agent 
 | `PATCH` | `/api/tickets/{ticket_id}/status` | Update ticket status (`predicted_failure`, `in_progress`, `completed`, `offline`). |
 | `GET` | `/api/tickets/{ticket_id}/checklist` | Get or generate the repair checklist (cached after first call). |
 | `PATCH` | `/api/tickets/{ticket_id}/checklist/{item_index}` | Update a checklist item's completion and notes. Auto-completes ticket when all done. |
-| `POST` | `/api/chat` | Chat with the AI copilot (with ticket context and conversation memory). |
+| `POST` | `/api/chat` | Chat with the AI copilot (with ticket context, conversation memory, and optional image). |
 | `GET` | `/api/tickets/{ticket_id}/chat/history` | Retrieve full chat history for a ticket. |
 
 Interactive API docs available at `/docs` when the server is running.
@@ -63,7 +63,6 @@ SacHack26-/
 ├── main.py                          # FastAPI backend (all endpoints + RAG pipeline)
 ├── requirements.txt                 # Python dependencies
 ├── render.yaml                      # Render.com deployment config (backend)
-├── vercel.json                      # Vercel deployment config (backend)
 ├── .env                             # Environment variables (not committed)
 ├── dummy_data/
 │   ├── telemetry_alerts.json        # 6 simulated predictive failure alerts
@@ -75,6 +74,7 @@ SacHack26-/
 ├── chroma_db/                       # Persisted ChromaDB vector store (auto-generated)
 └── frontend/
     ├── package.json                 # NPM dependencies & scripts
+    ├── vercel.json                  # Vercel deployment config (SPA routing)
     ├── vite.config.ts               # Vite config (React, Tailwind, PWA)
     ├── tsconfig.json                # TypeScript config
     ├── index.html                   # HTML entry point
@@ -87,6 +87,7 @@ SacHack26-/
             ├── routes.ts            # React Router config (5 routes)
             ├── api.ts               # API client functions
             ├── types.ts             # TypeScript interfaces
+            ├── mapper.ts            # Backend-to-frontend data mapper
             └── pages/
                 ├── TicketList.tsx        # Home: active & past ticket tabs
                 ├── TicketDetail.tsx      # Ticket view with telemetry charts
@@ -107,7 +108,7 @@ SacHack26-/
 
 ```bash
 # Clone the repo
-git clone https://github.com/Hellfrosted/SacHack26-.git
+git clone https://github.com/LinhHuynh2403/SacHack26-.git
 cd SacHack26-
 
 # Create and activate virtual environment
@@ -145,7 +146,7 @@ npm run dev
 
 The frontend dev server starts on `http://localhost:5173` and is accessible on the local network.
 
-> **Note:** The frontend API base URL is configured in `frontend/src/app/api.ts`. Update it to `http://localhost:8000` for local development if needed.
+> **Note:** The frontend API base URL is configured via the `VITE_API_BASE_URL` environment variable. It defaults to `http://localhost:8000/api` for local development. For production, set it to your Render backend URL (e.g., `https://your-backend.onrender.com/api`).
 
 ### Quick Test
 
@@ -154,26 +155,40 @@ The frontend dev server starts on `http://localhost:5173` and is accessible on t
 curl http://localhost:8000/api/tickets
 
 # Get a single ticket
-curl http://localhost:8000/api/tickets/DP-INC-9001
+curl http://localhost:8000/api/tickets/INC-9001
 
 # Generate a checklist (requires GOOGLE_API_KEY)
-curl http://localhost:8000/api/tickets/DP-INC-9001/checklist
+curl http://localhost:8000/api/tickets/INC-9001/checklist
 
 # Mark checklist item 0 as completed
-curl -X PATCH http://localhost:8000/api/tickets/DP-INC-9001/checklist/0 \
+curl -X PATCH http://localhost:8000/api/tickets/INC-9001/checklist/0 \
   -H "Content-Type: application/json" \
   -d '{"completed": true}'
 
 # Chat with the AI copilot
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "The coolant valve is stuck, what should I do?", "ticket_id": "DP-INC-9001"}'
+  -d '{"message": "The coolant valve is stuck, what should I do?", "ticket_id": "INC-9001"}'
 ```
 
 ## Deployment
 
-- **Backend:** Configured for [Render.com](https://render.com) via `render.yaml` and [Vercel](https://vercel.com) via `vercel.json`. Set the `GOOGLE_API_KEY` environment variable in your deployment dashboard.
-- **Frontend:** Can be deployed to any static hosting provider (Vercel, Netlify, etc.) by running `npm run build` in the `frontend/` directory and deploying the `dist/` output.
+### Backend (Render)
+
+The backend is configured for [Render.com](https://render.com) via `render.yaml`.
+
+1. Connect your GitHub repo to Render.
+2. Render will auto-detect the `render.yaml` configuration.
+3. Set the `GOOGLE_API_KEY` environment variable in the Render dashboard.
+
+### Frontend (Vercel)
+
+The frontend is configured for [Vercel](https://vercel.com) via `frontend/vercel.json`.
+
+1. Import the repo into Vercel.
+2. Set the **Root Directory** to `frontend`.
+3. Vercel will auto-detect the Vite build (build command: `npm run build`, output: `dist`).
+4. Add the environment variable `VITE_API_BASE_URL` pointing to your Render backend (e.g., `https://your-backend.onrender.com/api`).
 
 ## License
 
