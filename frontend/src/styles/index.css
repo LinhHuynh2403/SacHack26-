@@ -1,3 +1,37 @@
-@import './fonts.css';
-@import './tailwind.css';
-@import './theme.css';
+@import "tailwindcss";
+
+@theme {
+    /* Backgrounds */
+    --color-bg-app: #F8FAFC;
+    --color-bg-card: #F8FAFC;
+
+    /* Tabs */
+    --color-tab-container: #D9EDFD;
+    --color-tab-active: #F8FAFC;
+
+    /* Status Pills */
+    --color-status-process-bg: #FF383C;
+    --color-status-process-text: #ffffff;
+
+    --color-status-notstarted-bg: #cce7ff;
+    /* Appoximation of #0088FF at 20% opacity */
+    --color-status-notstarted-text: #5A5A5A;
+
+    --color-status-completed-bg: #4ade80;
+    /* From your previous green completed screenshot */
+    --color-status-completed-text: #ffffff;
+
+    /* Prediction Error Box */
+    --color-box-error-bg: #FFDED9;
+    --color-box-error-border: #852221;
+    --color-box-error-text: #852221;
+
+    /* Text */
+    --color-text-primary: #000000;
+    --color-text-secondary: #595959;
+}
+
+body {
+    background-color: var(--color-bg-app);
+    -webkit-font-smoothing: antialiased;
+}
