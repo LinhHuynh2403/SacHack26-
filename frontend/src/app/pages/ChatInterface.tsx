@@ -250,7 +250,7 @@ export function ChatInterface() {
     return (
       <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
         <ErrorState
-          title="Voice of the Pigeon"
+           title="Connection Error"
           message={error}
           onRetry={loadData}
         />

@@ -18,6 +18,8 @@ from langchain_chroma import Chroma
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import HumanMessage, SystemMessage
+import base64
 
 load_dotenv()
 
@@ -105,6 +107,8 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3-flash-preview")
 # Global RAG variables
 vector_store = None
 rag_chain = None
+llm_model = None  # Direct reference for multimodal calls
+retriever_ref = None  # Direct reference for manual retrieval
 
 
 def _load_alerts() -> list[dict]:
@@ -135,7 +139,7 @@ def _enrich_ticket(ticket: dict) -> dict:
 
 
 def init_rag():
-    global vector_store, rag_chain
+    global vector_store, rag_chain, llm_model, retriever_ref
     print("Initializing RAG Pipeline...")
 
     # Load alerts into memory on startup
@@ -167,6 +171,7 @@ def init_rag():
         )
 
     llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
+    llm_model = llm  # Store for direct multimodal calls
 
     system_prompt = (
         "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
@@ -182,6 +187,7 @@ def init_rag():
     ])
 
     retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+    retriever_ref = retriever  # Store for direct retrieval in multimodal path
     question_answer_chain = create_stuff_documents_chain(llm, prompt)
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
 
@@ -442,18 +448,48 @@ def chat_with_copilot(request: ChatRequest):
                 history_str += f"{role_label}: {msg['content']}\n"
 
         # Compose the full input with ticket context and history
-        image_context = ""
-        if request.image_base64:
-            image_context = (
-                "\n\n[The technician has attached a photo of the issue. "
-                "They are showing you what they see on-site. "
-                "Please acknowledge the photo and provide visual diagnosis guidance "
-                "based on the repair context above.]\n"
+        if request.image_base64 and llm_model and retriever_ref:
+            # ── Multimodal path: send image + text to Gemini Vision ──
+            # Retrieve relevant manual docs for context
+            relevant_docs = retriever_ref.invoke(request.message)
+            manual_context = "\n\n".join(doc.page_content for doc in relevant_docs)
+
+            text_prompt = (
+                "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
+                "You are currently helping a technician on-site with a broken EV charger.\n"
+                "Use the following retrieved context from the proprietary repair manuals to answer the technician's questions.\n"
+                "If the answer is not in the manuals, say that you don't have that specific data, but provide general electrical mechanic advice.\n"
+                "Always emphasize LOTO (Lockout/Tagout) and high-voltage safety.\n\n"
+                f"Manual Context:\n{manual_context}\n"
+                f"{ticket_context}{history_str}\n"
+                "The technician has attached a photo showing what they see on-site. "
+                "Analyze the image carefully for visible damage, wear, corrosion, loose connections, "
+                "error codes on displays, or any other diagnostic clues.\n\n"
+                f"Technician's current question: {request.message}"
             )
 
-        full_input = f"{ticket_context}{history_str}{image_context}\nTechnician's current question: {request.message}"
+            # Strip the data URI prefix if present, keep raw base64
+            img_b64 = request.image_base64
+            if img_b64.startswith("data:"):
+                img_b64 = img_b64.split(",", 1)[1]
 
-        response = rag_chain.invoke({"input": full_input})
+            multimodal_message = HumanMessage(
+                content=[
+                    {"type": "text", "text": text_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{img_b64}"},
+                    },
+                ]
+            )
+
+            ai_response = llm_model.invoke([multimodal_message])
+            answer = ai_response.content
+        else:
+            # ── Text-only path: use the RAG chain as before ──
+            full_input = f"{ticket_context}{history_str}\nTechnician's current question: {request.message}"
+            response = rag_chain.invoke({"input": full_input})
+            answer = response["answer"]
 
         now = datetime.now(timezone.utc).isoformat()
 
@@ -466,13 +502,13 @@ def chat_with_copilot(request: ChatRequest):
         })
         history.append({
             "role": "assistant",
-            "content": response["answer"],
+            "content": answer,
             "timestamp": now,
             "checklist_item_index": None,
         })
 
         return ChatResponse(
-            answer=response["answer"],
+            answer=answer,
             ticket_id=request.ticket_id,
             history_length=len(history),
         )

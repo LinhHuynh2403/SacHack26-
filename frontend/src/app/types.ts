@@ -33,6 +33,18 @@ export interface Ticket {
         temperature: number;
         voltage: number;
         current: number;
+        // Component-specific sensor fields
+        rfidLatency?: number;
+        sessionTimeouts?: number;
+        signalStrength?: number;
+        isolation?: number;
+        coolantFlow?: number;
+        pumpRpm?: number;
+        backlight?: number;
+        touchFailures?: number;
+        heartbeatLatency?: number;
+        coolantInlet?: number;
+        coolantOutlet?: number;
     }>;
 }
 

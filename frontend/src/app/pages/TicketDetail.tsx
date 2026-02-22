@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist } from "../api";
@@ -13,6 +13,160 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+
+
+// ── Metric definition type ──────────────────────────────
+interface MetricDef {
+  key: string;
+  label: string;
+  unit: string;
+  chartColor: string;
+  getStatus: (value: number) => { label: string; range: string; color: string; Icon: typeof TrendingUp | typeof TrendingDown | undefined };
+}
+
+// ── Metric definitions ──────────────────────────────────
+
+const METRIC_DEFS: Record<string, MetricDef> = {
+  temperature: {
+    key: "temperature", label: "Temperature", unit: "°C", chartColor: "#f97316",
+    getStatus: (v) => {
+      if (v > 60) return { label: "Critical", range: ">60°C", color: "red", Icon: TrendingUp };
+      if (v > 50) return { label: "Above normal", range: "35-50°C", color: "orange", Icon: TrendingUp };
+      if (v < 20) return { label: "Below normal", range: "35-50°C", color: "blue", Icon: TrendingDown };
+      return { label: "Normal range", range: "35-50°C", color: "green", Icon: undefined };
+    },
+  },
+  pressure: {
+    key: "pressure", label: "Pressure", unit: " bar", chartColor: "#ef4444",
+    getStatus: (v) => {
+      if (v < 1.5) return { label: "Critical low", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
+      if (v < 2.5) return { label: "Below normal", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
+      if (v > 3.5) return { label: "Above normal", range: "2.5-3.5 bar", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "2.5-3.5 bar", color: "green", Icon: undefined };
+    },
+  },
+  voltage: {
+    key: "voltage", label: "Voltage", unit: "V", chartColor: "#3b82f6",
+    getStatus: (v) => {
+      if (v < 380) return { label: "Below normal", range: "390-410V", color: "red", Icon: TrendingDown };
+      if (v < 390) return { label: "Slightly low", range: "390-410V", color: "orange", Icon: TrendingDown };
+      if (v > 410) return { label: "Above normal", range: "390-410V", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "390-410V", color: "blue", Icon: undefined };
+    },
+  },
+  current: {
+    key: "current", label: "Current", unit: "A", chartColor: "#8b5cf6",
+    getStatus: (v) => {
+      if (v > 200) return { label: "High draw", range: "<150A", color: "orange", Icon: TrendingUp };
+      if (v > 150) return { label: "Elevated", range: "<150A", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "<150A", color: "blue", Icon: undefined };
+    },
+  },
+  rfidLatency: {
+    key: "rfidLatency", label: "RFID Latency", unit: "ms", chartColor: "#ef4444",
+    getStatus: (v) => {
+      if (v > 1500) return { label: "Critical", range: "<300ms", color: "red", Icon: TrendingUp };
+      if (v > 500) return { label: "Degraded", range: "<300ms", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "<300ms", color: "green", Icon: undefined };
+    },
+  },
+  sessionTimeouts: {
+    key: "sessionTimeouts", label: "Session Timeouts", unit: "", chartColor: "#dc2626",
+    getStatus: (v) => {
+      if (v >= 3) return { label: "Frequent", range: "0 expected", color: "red", Icon: TrendingUp };
+      if (v >= 1) return { label: "Intermittent", range: "0 expected", color: "orange", Icon: TrendingUp };
+      return { label: "None", range: "0 expected", color: "green", Icon: undefined };
+    },
+  },
+  signalStrength: {
+    key: "signalStrength", label: "Signal Strength", unit: " dBm", chartColor: "#6366f1",
+    getStatus: (v) => {
+      if (v < -90) return { label: "No signal", range: "> -80 dBm", color: "red", Icon: TrendingDown };
+      if (v < -80) return { label: "Weak", range: "> -80 dBm", color: "orange", Icon: TrendingDown };
+      return { label: "Adequate", range: "> -80 dBm", color: "green", Icon: undefined };
+    },
+  },
+  isolation: {
+    key: "isolation", label: "Isolation", unit: " kOhm", chartColor: "#ef4444",
+    getStatus: (v) => {
+      if (v < 150) return { label: "Critical low", range: ">500 kOhm", color: "red", Icon: TrendingDown };
+      if (v < 300) return { label: "Degraded", range: ">500 kOhm", color: "orange", Icon: TrendingDown };
+      return { label: "Normal range", range: ">500 kOhm", color: "green", Icon: undefined };
+    },
+  },
+  coolantFlow: {
+    key: "coolantFlow", label: "Coolant Flow", unit: " L/min", chartColor: "#06b6d4",
+    getStatus: (v) => {
+      if (v < 5) return { label: "Low flow", range: "6-8 L/min", color: "red", Icon: TrendingDown };
+      if (v < 6) return { label: "Below normal", range: "6-8 L/min", color: "orange", Icon: TrendingDown };
+      return { label: "Normal range", range: "6-8 L/min", color: "green", Icon: undefined };
+    },
+  },
+  pumpRpm: {
+    key: "pumpRpm", label: "Pump RPM", unit: " RPM", chartColor: "#14b8a6",
+    getStatus: (v) => {
+      if (v < 2700) return { label: "Critical low", range: "3000-3500", color: "red", Icon: TrendingDown };
+      if (v < 3000) return { label: "Below normal", range: "3000-3500", color: "orange", Icon: TrendingDown };
+      return { label: "Normal range", range: "3000-3500", color: "green", Icon: undefined };
+    },
+  },
+  backlight: {
+    key: "backlight", label: "Backlight", unit: "%", chartColor: "#f59e0b",
+    getStatus: (v) => {
+      if (v < 60) return { label: "Critical low", range: ">85%", color: "red", Icon: TrendingDown };
+      if (v < 75) return { label: "Degraded", range: ">85%", color: "orange", Icon: TrendingDown };
+      return { label: "Normal range", range: ">85%", color: "green", Icon: undefined };
+    },
+  },
+  touchFailures: {
+    key: "touchFailures", label: "Touch Failures", unit: "/day", chartColor: "#dc2626",
+    getStatus: (v) => {
+      if (v >= 5) return { label: "Frequent", range: "0 expected", color: "red", Icon: TrendingUp };
+      if (v >= 1) return { label: "Intermittent", range: "0 expected", color: "orange", Icon: TrendingUp };
+      return { label: "None", range: "0 expected", color: "green", Icon: undefined };
+    },
+  },
+  heartbeatLatency: {
+    key: "heartbeatLatency", label: "Heartbeat Latency", unit: "ms", chartColor: "#e11d48",
+    getStatus: (v) => {
+      if (v > 5000) return { label: "Critical", range: "<500ms", color: "red", Icon: TrendingUp };
+      if (v > 1000) return { label: "Degraded", range: "<500ms", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "<500ms", color: "green", Icon: undefined };
+    },
+  },
+  coolantInlet: {
+    key: "coolantInlet", label: "Coolant Inlet", unit: "°C", chartColor: "#0ea5e9",
+    getStatus: (v) => {
+      if (v > 35) return { label: "High", range: "25-30°C", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "25-30°C", color: "green", Icon: undefined };
+    },
+  },
+  coolantOutlet: {
+    key: "coolantOutlet", label: "Coolant Outlet", unit: "°C", chartColor: "#f97316",
+    getStatus: (v) => {
+      if (v > 45) return { label: "High", range: "35-42°C", color: "orange", Icon: TrendingUp };
+      if (v > 42) return { label: "Elevated", range: "35-42°C", color: "orange", Icon: TrendingUp };
+      return { label: "Normal range", range: "35-42°C", color: "green", Icon: undefined };
+    },
+  },
+};
+
+// Core metrics always checked; component-specific ones only shown if data exists
+const CORE_KEYS = ["temperature", "pressure", "voltage", "current"];
+const COMPONENT_KEYS = [
+  "rfidLatency", "sessionTimeouts", "signalStrength",
+  "isolation", "coolantFlow", "pumpRpm",
+  "backlight", "touchFailures",
+  "heartbeatLatency",
+  "coolantInlet", "coolantOutlet",
+];
+
+const colorMap: Record<string, { bg: string; border: string; label: string; value: string; text: string }> = {
+  red: { bg: "bg-red-50", border: "border-red-200", label: "text-red-700", value: "text-red-900", text: "text-red-600" },
+  orange: { bg: "bg-orange-50", border: "border-orange-200", label: "text-orange-700", value: "text-orange-900", text: "text-orange-600" },
+  blue: { bg: "bg-blue-50", border: "border-blue-200", label: "text-blue-700", value: "text-blue-900", text: "text-blue-600" },
+  green: { bg: "bg-green-50", border: "border-green-200", label: "text-green-700", value: "text-green-900", text: "text-green-600" },
+};
 
 
 export function TicketDetail() {
@@ -45,9 +199,30 @@ export function TicketDetail() {
     loadData();
   }, [ticketId]);
 
-
-
   const telemetry = ticket?.telemetryHistory || [];
+  const latestData = telemetry?.[telemetry.length - 1];
+
+  // Detect which metrics have real data (non-zero, non-undefined) in the telemetry
+  const activeMetrics = useMemo(() => {
+    if (telemetry.length === 0) return [];
+
+    const hasData = (key: string): boolean =>
+      telemetry.some((s: any) => s[key] !== undefined && s[key] !== null && s[key] !== 0);
+
+    // Core metrics: include only if they have non-zero data
+    const coreActive = CORE_KEYS.filter(hasData);
+
+    // Component-specific: include if any snapshot has the field
+    const componentActive = COMPONENT_KEYS.filter(hasData);
+
+    // Prioritize component-specific metrics first (they're the interesting ones for the ticket),
+    // then core metrics
+    return [...componentActive, ...coreActive];
+  }, [telemetry]);
+
+  // Split into cards (top 4) and charts (top 4 most relevant)
+  const cardMetrics = activeMetrics.slice(0, 4);
+  const chartMetrics = activeMetrics.slice(0, 4);
 
   if (isLoading) {
     return <div className="p-8 text-center text-gray-500">Loading details...</div>;
@@ -68,43 +243,6 @@ export function TicketDetail() {
   if (!ticket) {
     return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
   }
-
-  const latestData = telemetry?.[telemetry.length - 1];
-
-  // Dynamic threshold evaluation for telemetry cards
-  const getTemperatureStatus = (temp: number) => {
-    if (temp > 60) return { label: "Critical", range: ">60°C", color: "red", Icon: TrendingUp };
-    if (temp > 50) return { label: "Above normal", range: "35-50°C", color: "orange", Icon: TrendingUp };
-    if (temp < 20) return { label: "Below normal", range: "35-50°C", color: "blue", Icon: TrendingDown };
-    return { label: "Normal range", range: "35-50°C", color: "green", Icon: undefined };
-  };
-
-  const getPressureStatus = (pressure: number) => {
-    if (pressure < 1.5) return { label: "Critical low", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
-    if (pressure < 2.5) return { label: "Below normal", range: "2.5-3.5 bar", color: "red", Icon: TrendingDown };
-    if (pressure > 3.5) return { label: "Above normal", range: "2.5-3.5 bar", color: "orange", Icon: TrendingUp };
-    return { label: "Normal range", range: "2.5-3.5 bar", color: "green", Icon: undefined };
-  };
-
-  const getVoltageStatus = (voltage: number) => {
-    if (voltage < 380) return { label: "Below normal", range: "390-410V", color: "red", Icon: TrendingDown };
-    if (voltage < 390) return { label: "Slightly low", range: "390-410V", color: "orange", Icon: TrendingDown };
-    if (voltage > 410) return { label: "Above normal", range: "390-410V", color: "orange", Icon: TrendingUp };
-    return { label: "Normal range", range: "390-410V", color: "blue", Icon: undefined };
-  };
-
-  const getCurrentStatus = (current: number) => {
-    if (current > 200) return { label: "High draw", range: "<150A", color: "orange", Icon: TrendingUp };
-    if (current > 150) return { label: "Elevated", range: "<150A", color: "orange", Icon: TrendingUp };
-    return { label: "Normal range", range: "<150A", color: "blue", Icon: undefined };
-  };
-
-  const colorMap: Record<string, { bg: string; border: string; label: string; value: string; text: string }> = {
-    red: { bg: "bg-red-50", border: "border-red-200", label: "text-red-700", value: "text-red-900", text: "text-red-600" },
-    orange: { bg: "bg-orange-50", border: "border-orange-200", label: "text-orange-700", value: "text-orange-900", text: "text-orange-600" },
-    blue: { bg: "bg-blue-50", border: "border-blue-200", label: "text-blue-700", value: "text-blue-900", text: "text-blue-600" },
-    green: { bg: "bg-green-50", border: "border-green-200", label: "text-green-700", value: "text-green-900", text: "text-green-600" },
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-6">
@@ -167,111 +305,64 @@ export function TicketDetail() {
         <h2 className="font-semibold text-gray-900 mb-3">Telemetry Context</h2>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <p className="text-sm text-gray-600 mb-4">
-            Data leading up to the prediction (last 30 minutes)
+            Sensor data leading up to the prediction
           </p>
 
-          {/* Current Readings */}
-          {latestData && (() => {
-            const tempStatus = getTemperatureStatus(latestData.temperature);
-            const pressureStatus = getPressureStatus(latestData.pressure);
-            const voltageStatus = getVoltageStatus(latestData.voltage);
-            const currentStatus = getCurrentStatus(latestData.current);
-            const tc = colorMap[tempStatus.color];
-            const pc = colorMap[pressureStatus.color];
-            const vc = colorMap[voltageStatus.color];
-            const cc = colorMap[currentStatus.color];
-
-            return (
+          {/* Dynamic Reading Cards */}
+          {latestData && cardMetrics.length > 0 && (
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className={`${tc.bg} border ${tc.border} rounded-md p-3`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs ${tc.label}`}>Temperature</span>
-                  {tempStatus.Icon && <tempStatus.Icon className={`w-4 h-4 ${tc.text}`} />}
-                </div>
-                <p className={`text-2xl font-bold ${tc.value} mt-1`}>
-                  {latestData.temperature}°C
-                </p>
-                <p className={`text-xs ${tc.text} mt-1`}>{tempStatus.label} ({tempStatus.range})</p>
-              </div>
-
-              <div className={`${pc.bg} border ${pc.border} rounded-md p-3`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs ${pc.label}`}>Pressure</span>
-                  {pressureStatus.Icon && <pressureStatus.Icon className={`w-4 h-4 ${pc.text}`} />}
-                </div>
-                <p className={`text-2xl font-bold ${pc.value} mt-1`}>
-                  {latestData.pressure} bar
-                </p>
-                <p className={`text-xs ${pc.text} mt-1`}>{pressureStatus.label} ({pressureStatus.range})</p>
-              </div>
-
-              <div className={`${vc.bg} border ${vc.border} rounded-md p-3`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs ${vc.label}`}>Voltage</span>
-                  {voltageStatus.Icon && <voltageStatus.Icon className={`w-4 h-4 ${vc.text}`} />}
-                </div>
-                <p className={`text-2xl font-bold ${vc.value} mt-1`}>
-                  {latestData.voltage}V
-                </p>
-                <p className={`text-xs ${vc.text} mt-1`}>{voltageStatus.label} ({voltageStatus.range})</p>
-              </div>
-
-              <div className={`${cc.bg} border ${cc.border} rounded-md p-3`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-xs ${cc.label}`}>Current</span>
-                  {currentStatus.Icon && <currentStatus.Icon className={`w-4 h-4 ${cc.text}`} />}
-                </div>
-                <p className={`text-2xl font-bold ${cc.value} mt-1`}>
-                  {latestData.current}A
-                </p>
-                <p className={`text-xs ${cc.text} mt-1`}>{currentStatus.label} ({currentStatus.range})</p>
-              </div>
+              {cardMetrics.map((metricKey) => {
+                const def = METRIC_DEFS[metricKey];
+                if (!def) return null;
+                const value = (latestData as any)[metricKey] ?? 0;
+                const status = def.getStatus(value);
+                const c = colorMap[status.color];
+                return (
+                  <div key={metricKey} className={`${c.bg} border ${c.border} rounded-md p-3`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs ${c.label}`}>{def.label}</span>
+                      {status.Icon && <status.Icon className={`w-4 h-4 ${c.text}`} />}
+                    </div>
+                    <p className={`text-2xl font-bold ${c.value} mt-1`}>
+                      {value !== null && value !== undefined ? value : "N/A"}{def.unit}
+                    </p>
+                    <p className={`text-xs ${c.text} mt-1`}>{status.label} ({status.range})</p>
+                  </div>
+                );
+              })}
             </div>
-            );
-          })()}
+          )}
 
-          {/* Charts */}
-          {telemetry && (
+          {/* Dynamic Charts */}
+          {telemetry.length > 0 && chartMetrics.length > 0 && (
             <div className="space-y-4">
-              {/* Pressure Chart */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Pressure Trend</p>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={telemetry}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="pressure"
-                      stroke="#ef4444"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Temperature Chart */}
-              <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">Temperature Trend</p>
-                <ResponsiveContainer width="100%" height={120}>
-                  <LineChart data={telemetry}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="temperature"
-                      stroke="#f97316"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
+              {chartMetrics.map((metricKey) => {
+                const def = METRIC_DEFS[metricKey];
+                if (!def) return null;
+                return (
+                  <div key={metricKey}>
+                    <p className="text-sm font-medium text-gray-700 mb-2">{def.label} Trend</p>
+                    <ResponsiveContainer width="100%" height={120}>
+                      <LineChart data={telemetry}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="timestamp" tick={{ fontSize: 10 }} stroke="#6b7280" />
+                        <YAxis tick={{ fontSize: 10 }} stroke="#6b7280" />
+                        <Tooltip
+                          formatter={(value: number) => [`${value}${def.unit}`, def.label]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey={metricKey}
+                          stroke={def.chartColor}
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                          connectNulls
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
