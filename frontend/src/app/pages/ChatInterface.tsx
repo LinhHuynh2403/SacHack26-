@@ -59,7 +59,7 @@ export function ChatInterface() {
         const checklistData = await fetchChecklist(ticketId);
         const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
 
-        let greetingText = `Hi Tech! I'm your Data Pigeon Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
+        let greetingText = `Hi Tech! I'm your Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
 
         if (currentStep && stepIdx !== undefined) {
           greetingText = `Hi Tech! I'm ready to help specifically with Step ${stepIdx + 1}: **${currentStep.task}**. Let me know if you need clarification or specific values from the manual.`;
@@ -74,7 +74,7 @@ export function ChatInterface() {
       }
     } catch (err: any) {
       console.error("Failed to fetch ticket or history:", err);
-      setError("The AI Copilot is currently offline. Please check your connection to the Data Pigeon network.");
+      setError("The AI Copilot is currently offline. Please check your network connection.");
     } finally {
       setLoading(false);
     }
@@ -228,7 +228,7 @@ export function ChatInterface() {
       const errorResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "Sorry, I am having trouble connecting to the Data Pigeon servers right now.",
+        content: "Sorry, I am having trouble connecting to the server right now.",
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorResponse]);

@@ -1,12 +1,12 @@
-# Data Pigeon Field Tech Copilot
+# Field Tech Copilot
 
-An AI-powered mobile assistant for EV maintenance technicians, built for the **Data Pigeon AI Incident Response Hackathon** (SacHack 2026).
+An AI-powered mobile assistant for EV maintenance technicians, built for the **SacHack 2026 AI Incident Response Hackathon**.
 
 ## The Mission
 
-Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. While Data Pigeon provides the predictive layer to identify these failures *before* they cause downtime, there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
+Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. Predictive analytics can identify these failures *before* they cause downtime, but there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
 
-The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take Data Pigeon's predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
+The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
 
 ## How it Works
 
@@ -40,7 +40,7 @@ The **Field Tech Copilot** bridges this gap. It is an intelligent support agent 
 - **Charts:** Recharts (telemetry visualization)
 - **Animations:** Motion (Framer Motion)
 - **Icons:** Lucide React
-- **PWA:** Configured as a Progressive Web App ("DP Copilot") for mobile field use with offline-capable service worker
+- **PWA:** Configured as a Progressive Web App for mobile field use with offline-capable service worker
 
 ## API Endpoints
 
@@ -155,20 +155,20 @@ The frontend dev server starts on `http://localhost:5173` and is accessible on t
 curl http://localhost:8000/api/tickets
 
 # Get a single ticket
-curl http://localhost:8000/api/tickets/DP-INC-9001
+curl http://localhost:8000/api/tickets/INC-9001
 
 # Generate a checklist (requires GOOGLE_API_KEY)
-curl http://localhost:8000/api/tickets/DP-INC-9001/checklist
+curl http://localhost:8000/api/tickets/INC-9001/checklist
 
 # Mark checklist item 0 as completed
-curl -X PATCH http://localhost:8000/api/tickets/DP-INC-9001/checklist/0 \
+curl -X PATCH http://localhost:8000/api/tickets/INC-9001/checklist/0 \
   -H "Content-Type: application/json" \
   -d '{"completed": true}'
 
 # Chat with the AI copilot
 curl -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "The coolant valve is stuck, what should I do?", "ticket_id": "DP-INC-9001"}'
+  -d '{"message": "The coolant valve is stuck, what should I do?", "ticket_id": "INC-9001"}'
 ```
 
 ## Deployment

@@ -13,8 +13,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
       manifest: {
-        name: 'Data Pigeon Copilot',
-        short_name: 'DP Copilot',
+        name: 'Field Tech Copilot',
+        short_name: 'FT Copilot',
         description: 'EV Charger Maintenance and Repair Copilot',
         theme_color: '#2563eb', // Matches blue-600
         background_color: '#f9fafb', // Matches gray-50

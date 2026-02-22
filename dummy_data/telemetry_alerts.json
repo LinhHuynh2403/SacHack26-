@@ -1,6 +1,6 @@
 [
   {
-    "ticket_id": "DP-INC-9001",
+    "ticket_id": "INC-9001",
     "timestamp": "2026-02-21T13:30:00Z",
     "status": "predicted_failure",
     "urgency": "high",
@@ -30,7 +30,7 @@
     ]
   },
   {
-    "ticket_id": "DP-INC-9002",
+    "ticket_id": "INC-9002",
     "timestamp": "2026-02-21T13:45:00Z",
     "status": "predicted_failure",
     "urgency": "medium",
@@ -60,7 +60,7 @@
     ]
   },
   {
-    "ticket_id": "DP-INC-9003",
+    "ticket_id": "INC-9003",
     "timestamp": "2026-02-21T14:00:00Z",
     "status": "predicted_failure",
     "urgency": "critical",
@@ -90,7 +90,7 @@
     ]
   },
   {
-    "ticket_id": "DP-INC-9004",
+    "ticket_id": "INC-9004",
     "timestamp": "2026-02-21T14:15:00Z",
     "status": "predicted_failure",
     "urgency": "medium",
@@ -119,7 +119,7 @@
     ]
   },
   {
-    "ticket_id": "DP-INC-9005",
+    "ticket_id": "INC-9005",
     "timestamp": "2026-02-21T14:30:00Z",
     "status": "offline",
     "urgency": "critical",
@@ -147,7 +147,7 @@
     ]
   },
   {
-    "ticket_id": "DP-INC-9006",
+    "ticket_id": "INC-9006",
     "timestamp": "2026-02-21T15:00:00Z",
     "status": "predicted_failure",
     "urgency": "low",

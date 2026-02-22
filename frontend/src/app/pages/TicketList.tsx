@@ -121,7 +121,7 @@ export function TicketList() {
             <div>
               <p className="font-medium">{activeTickets.length} predicted failures assigned</p>
               <p className="text-sm text-blue-100 mt-0.5">
-                Prioritized by Data Pigeon ML predictions
+                Prioritized by ML predictions
               </p>
             </div>
           </div>
