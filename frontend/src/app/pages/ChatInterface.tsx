@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { useChecklist } from "../context/ChecklistContext";
 
 // Extended interface to handle local feedback state
 interface FixityMessage extends ChatMessage {
@@ -19,6 +20,7 @@ export function ChatInterface() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const stepId = searchParams.get("step");
+  const { markStepComplete } = useChecklist();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<FixityMessage[]>([]);
@@ -179,6 +181,13 @@ export function ChatInterface() {
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
       const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx, hasImage ? userMessage.image : undefined);
 
+      // If the backend detected step completions, update the checklist context
+      if (response.completed_steps && response.completed_steps.length > 0 && ticketId) {
+        for (const completedIdx of response.completed_steps) {
+          markStepComplete(ticketId, completedIdx);
+        }
+      }
+
       const aiResponse: FixityMessage = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -234,7 +243,7 @@ export function ChatInterface() {
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 sticky top-0 z-10">
-        <button onClick={() => navigate(-1)} className="active:scale-95 transition-transform p-1">
+        <button onClick={() => navigate(`/checklist/${ticketId}`)} className="active:scale-95 transition-transform p-1">
           <ArrowLeft className="w-6 h-6 text-[#1E1E1E]" />
         </button>
 

@@ -62,6 +62,7 @@ class ChatRequest(BaseModel):
     message: str
     ticket_id: str
     image_base64: Optional[str] = None  # base64-encoded JPEG from camera/photo input
+    step_idx: Optional[int] = None  # which checklist step the technician is asking about
 
 class ChatMessage(BaseModel):
     role: str  # "user" or "assistant"
@@ -73,6 +74,7 @@ class ChatResponse(BaseModel):
     answer: str
     ticket_id: str
     history_length: int
+    completed_steps: list[int] = []  # indices of checklist steps auto-completed by the AI
 
 # ──────────────────────────────────────────────
 # In-Memory State Store
@@ -398,6 +400,8 @@ def chat_with_copilot(request: ChatRequest):
     """
     Answers a technician's question using the RAG manuals.
     Maintains per-ticket conversation history for multi-turn support.
+    When step_idx is provided, injects the specific checklist step context
+    and can auto-detect step completions via structured markers.
     """
     if not rag_chain:
         raise HTTPException(
@@ -432,6 +436,26 @@ def chat_with_copilot(request: ChatRequest):
                 f"- Telemetry: {telemetry}\n"
             )
 
+        # Build checklist context when a specific step is targeted
+        checklist_context = ""
+        if request.ticket_id in ticket_checklists:
+            checklist = ticket_checklists[request.ticket_id]
+            checklist_overview = "\n\nRepair Checklist Overview:\n"
+            for i, item in enumerate(checklist):
+                status = "DONE" if item["completed"] else "PENDING"
+                marker = " <-- CURRENT STEP" if (request.step_idx is not None and i == request.step_idx) else ""
+                checklist_overview += f"  Step {i}: [{status}] {item['task']}{marker}\n"
+            checklist_context += checklist_overview
+
+            if request.step_idx is not None and 0 <= request.step_idx < len(checklist):
+                current_step = checklist[request.step_idx]
+                checklist_context += (
+                    f"\nThe technician is currently working on Step {request.step_idx}: \"{current_step['task']}\"\n"
+                    f"Step status: {'Completed' if current_step['completed'] else 'Not yet completed'}\n"
+                )
+                if current_step.get("notes"):
+                    checklist_context += f"Step notes: {current_step['notes']}\n"
+
         # Build conversation history string (last 10 messages for context window)
         history_str = ""
         recent_history = history[-10:]
@@ -441,7 +465,7 @@ def chat_with_copilot(request: ChatRequest):
                 role_label = "Technician" if msg["role"] == "user" else "Copilot"
                 history_str += f"{role_label}: {msg['content']}\n"
 
-        # Compose the full input with ticket context and history
+        # Compose the full input with ticket context, checklist context, and history
         image_context = ""
         if request.image_base64:
             image_context = (
@@ -451,30 +475,63 @@ def chat_with_copilot(request: ChatRequest):
                 "based on the repair context above.]\n"
             )
 
-        full_input = f"{ticket_context}{history_str}{image_context}\nTechnician's current question: {request.message}"
+        # Step completion detection instruction
+        step_completion_instruction = ""
+        if request.step_idx is not None and request.ticket_id in ticket_checklists:
+            step_completion_instruction = (
+                "\n\nIMPORTANT: If the technician's message indicates they have successfully completed "
+                "the current step (e.g., they say 'done', 'finished', 'completed', 'fixed it', "
+                "'it's working now', 'all good', 'checked', or describe having performed the action), "
+                "append the marker [STEP_COMPLETE:{step_idx}] at the very end of your response. "
+                "Only include this marker if the technician clearly confirms the step is done. "
+                "Do NOT include the marker if they are just asking questions or need more guidance.\n"
+            ).format(step_idx=request.step_idx)
+
+        full_input = (
+            f"{ticket_context}{checklist_context}{history_str}"
+            f"{image_context}{step_completion_instruction}"
+            f"\nTechnician's current question: {request.message}"
+        )
 
         response = rag_chain.invoke({"input": full_input})
 
         now = datetime.now(timezone.utc).isoformat()
+        answer_text = response["answer"]
+
+        # Parse and process [STEP_COMPLETE:N] markers
+        completed_steps: list[int] = []
+        step_complete_pattern = r'\[STEP_COMPLETE:(\d+)\]'
+        matches = re.findall(step_complete_pattern, answer_text)
+        for match in matches:
+            step_index = int(match)
+            if (request.ticket_id in ticket_checklists and
+                    0 <= step_index < len(ticket_checklists[request.ticket_id])):
+                ticket_checklists[request.ticket_id][step_index]["completed"] = True
+                completed_steps.append(step_index)
+
+        # Strip the markers from the displayed response
+        clean_answer = re.sub(step_complete_pattern, '', answer_text).strip()
 
         # Store both user message and assistant response in history
+        step_idx_val = request.step_idx if request.step_idx is not None else None
         history.append({
             "role": "user",
             "content": request.message,
             "timestamp": now,
-            "checklist_item_index": None,
+            "checklist_item_index": step_idx_val,
         })
         history.append({
             "role": "assistant",
-            "content": response["answer"],
+            "content": clean_answer,
             "timestamp": now,
-            "checklist_item_index": None,
+            "checklist_item_index": step_idx_val,
         })
 
         return ChatResponse(
-            answer=response["answer"],
+            answer=clean_answer,
             ticket_id=request.ticket_id,
             history_length=len(history),
+            completed_steps=completed_steps,
         )
     except HTTPException:
         raise

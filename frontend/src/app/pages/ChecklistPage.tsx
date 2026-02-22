@@ -1,19 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Ticket, BackendTicket } from "../types";
-import { fetchTicket, fetchChecklist, updateChecklistItem, updateTicketStatus } from "../api";
+import { fetchTicket, updateTicketStatus } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ArrowLeft, Sparkles, Check, RefreshCw } from "lucide-react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
 import { SwipeToEnd } from "../components/SwipeToEnd";
+import { useChecklist } from "../context/ChecklistContext";
 
 export function ChecklistPage() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
+  const { getChecklist, loadChecklist, toggleStep, isLoading: isChecklistLoading } = useChecklist();
   const [ticket, setTicket] = useState<Ticket | null>(null);
-  const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const steps = ticketId ? getChecklist(ticketId) ?? [] : [];
 
   const loadData = async () => {
     if (!ticketId) return;
@@ -23,22 +26,11 @@ export function ChecklistPage() {
       const alert: BackendTicket = await fetchTicket(ticketId);
       setTicket(mapBackendTicket(alert));
 
-      const checklistData = await fetchChecklist(ticketId);
-      if (checklistData && checklistData.checklist) {
-        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
-          id: idx,
-          title: s.task,
-          description: s.notes || "",
-          completed: s.completed,
-          notes: s.notes
-        })));
-      } else {
-        setSteps([]);
-      }
+      // loadChecklist uses cached data if available (no unnecessary re-fetch)
+      await loadChecklist(ticketId);
     } catch (err: any) {
       console.error("Failed to load checklist", err);
       setError("We couldn't generate your repair checklist.");
-      setSteps([]);
     } finally {
       setIsLoading(false);
     }
@@ -58,29 +50,16 @@ export function ChecklistPage() {
     }
   };
 
-  const toggleStepCompletion = async (index: number) => {
-    const step = steps[index];
-    const newCompleted = !step.completed;
-
-    // Optimistic update
-    setSteps(prev => prev.map((s, i) => i === index ? { ...s, completed: newCompleted } : s));
-
-    try {
-      if (ticketId) {
-        await updateChecklistItem(ticketId, index, newCompleted);
-      }
-    } catch (error) {
-      console.error("Failed to update step", error);
-      // Revert on error
-      setSteps(prev => prev.map((s, i) => i === index ? { ...s, completed: !newCompleted } : s));
-    }
+  const handleToggleStep = async (index: number) => {
+    if (!ticketId) return;
+    await toggleStep(ticketId, index);
   };
 
   const handleAskAI = (stepId: number) => {
     navigate(`/chat/${ticketId}?step=${stepId}`);
   };
 
-  if (isLoading) {
+  if (isLoading && steps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC]">
         <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
@@ -153,7 +132,7 @@ export function ChecklistPage() {
             >
               {/* Checkbox (Custom styled to match Figma) */}
               <button
-                onClick={() => toggleStepCompletion(index)}
+                onClick={() => handleToggleStep(index)}
                 className="mt-0.5 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded-[3px] border-[2px] transition-all"
                 style={{
                   borderColor: step.completed ? "#0088FF" : "#49454F",
