@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { pastTickets, Ticket } from "../data/mockData";
+import { Ticket } from "../types";
 import { fetchTickets } from "../api";
 import { AlertCircle, ChevronRight, Clock, MapPin, Wrench, CheckCircle, FileText } from "lucide-react";
 
 export function TicketList() {
   const [activeTab, setActiveTab] = useState<"active" | "past">("active");
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
+  const [pastTickets, setPastTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -14,20 +15,24 @@ export function TicketList() {
       try {
         const data = await fetchTickets();
         // Map backend alerts to the expected frontend Ticket interface
-        const mappedTickets: Ticket[] = data.map((alert: any) => ({
+        const allTickets: Ticket[] = data.map((alert: any) => ({
           id: alert.ticket_id,
           stationId: alert.station_info.charger_id,
           component: alert.prediction_details.failing_component,
           priority: alert.urgency as any,
           status: alert.status === 'completed' ? 'resolved' :
-            alert.status === 'in_progress' ? 'in-progress' : 'assigned',
+            alert.status === 'in_progress' ? 'in-progress' :
+              alert.status === 'offline' ? 'offline' : 'assigned',
           predictedFailure: alert.prediction_details.telemetry_context,
           assignedTo: "Tech #4521",
           timestamp: alert.timestamp,
           location: alert.station_info.location,
+          completedDate: alert.status === 'completed' ? alert.timestamp : undefined, // Simplification
+          aiNotes: [] // Backend doesn't provide these yet in basic list
         }));
 
-        setActiveTickets(mappedTickets);
+        setActiveTickets(allTickets.filter(t => t.status !== 'resolved'));
+        setPastTickets(allTickets.filter(t => t.status === 'resolved'));
       } catch (error) {
         console.error(error);
       } finally {

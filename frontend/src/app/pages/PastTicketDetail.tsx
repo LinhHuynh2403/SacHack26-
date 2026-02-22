@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { pastTickets, pastTelemetryData } from "../data/mockData";
+import { Ticket } from "../types";
+import { fetchTicket, fetchChecklist } from "../api";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,16 +12,60 @@ import {
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+const MOCK_PAST_TELEMETRY = [
+  { timestamp: "09:00", pressure: 3.1, temperature: 40, voltage: 232, current: 15.2 },
+  { timestamp: "10:00", pressure: 3.0, temperature: 41, voltage: 231, current: 15.3 },
+  { timestamp: "11:00", pressure: 3.2, temperature: 39, voltage: 233, current: 15.1 },
+];
+
 export function PastTicketDetail() {
   const { ticketId } = useParams();
-  const ticket = pastTickets.find((t) => t.id === ticketId);
-  const telemetry = pastTelemetryData[ticketId || ""];
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [steps, setSteps] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!ticket) {
-    return <div>Ticket not found</div>;
-  }
+  useEffect(() => {
+    const loadData = async () => {
+      if (!ticketId) return;
+      try {
+        const alert = await fetchTicket(ticketId);
+        const mappedTicket: Ticket = {
+          id: alert.ticket_id,
+          stationId: alert.station_info.charger_id,
+          component: alert.prediction_details.failing_component,
+          priority: alert.urgency as any,
+          status: 'resolved',
+          predictedFailure: alert.prediction_details.telemetry_context,
+          assignedTo: "Tech #4521",
+          timestamp: alert.timestamp,
+          location: alert.station_info.location,
+          completedDate: alert.timestamp, // Fallback
+        };
+        setTicket(mappedTicket);
 
-  const completedSteps = ticket.completedSteps || [];
+        const checklistData = await fetchChecklist(ticketId);
+        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
+          id: idx + 1,
+          title: s.task,
+          description: s.task, // Fallback
+          completed: s.completed,
+          aiNote: s.notes
+        })) || []);
+
+      } catch (error) {
+        console.error("Failed to load past ticket", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [ticketId]);
+
+  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading details...</div>;
+  if (!ticket) return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
+
+  const telemetry = MOCK_PAST_TELEMETRY;
+  const completedSteps = steps;
   const hasAiNotes = completedSteps.some((step) => step.aiNote);
 
   return (

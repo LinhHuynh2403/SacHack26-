@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router";
-import { tickets, manualSteps } from "../data/mockData";
+import { Ticket } from "../types";
+import { fetchTicket, fetchChecklist, updateChecklistItem } from "../api";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,30 +12,64 @@ import {
 export function ChecklistPage() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
-  const [steps, setSteps] = useState(manualSteps["1"] || []);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [steps, setSteps] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const ticket = tickets.find((t) => t.id === ticketId) || {
-    id: ticketId as string,
-    stationId: "DP-INC Station",
-    component: "System Component",
-    priority: "critical" as any,
-    status: "assigned" as any,
-    predictedFailure: "Predicted Failure",
-    assignedTo: "Tech #4521",
-    timestamp: new Date().toISOString(),
-    location: "Site Location"
-  };
+  useEffect(() => {
+    const loadData = async () => {
+      if (!ticketId) return;
+      try {
+        const alert = await fetchTicket(ticketId);
+        const mappedTicket: Ticket = {
+          id: alert.ticket_id,
+          stationId: alert.station_info.charger_id,
+          component: alert.prediction_details.failing_component,
+          priority: alert.urgency as any,
+          status: alert.status as any,
+          predictedFailure: alert.prediction_details.telemetry_context,
+          assignedTo: "Tech #4521",
+          timestamp: alert.timestamp,
+          location: alert.station_info.location,
+        };
+        setTicket(mappedTicket);
 
-  if (!ticket) {
-    return <div>Ticket not found</div>;
-  }
+        const checklistData = await fetchChecklist(ticketId);
+        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
+          id: idx, // Use index for backend
+          title: s.task,
+          description: s.task,
+          completed: s.completed,
+          notes: s.notes
+        })));
+      } catch (error) {
+        console.error("Failed to load checklist", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, [ticketId]);
 
-  const toggleStepCompletion = (stepId: number) => {
-    setSteps((prevSteps) =>
-      prevSteps.map((step) =>
-        step.id === stepId ? { ...step, completed: !step.completed } : step
-      )
-    );
+  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading checklist...</div>;
+  if (!ticket) return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
+
+  const toggleStepCompletion = async (index: number) => {
+    const step = steps[index];
+    const newCompleted = !step.completed;
+
+    // Optimistic update
+    setSteps(prev => prev.map((s, i) => i === index ? { ...s, completed: newCompleted } : s));
+
+    try {
+      if (ticketId) {
+        await updateChecklistItem(ticketId, index, newCompleted);
+      }
+    } catch (error) {
+      console.error("Failed to update step", error);
+      // Revert on error
+      setSteps(prev => prev.map((s, i) => i === index ? { ...s, completed: !newCompleted } : s));
+    }
   };
 
   const handleAskAI = (stepId: number) => {
@@ -80,14 +115,14 @@ export function ChecklistPage() {
           </div>
 
           <div className="divide-y divide-gray-200">
-            {steps.map((step) => (
+            {steps.map((step, index) => (
               <div
-                key={step.id}
+                key={index}
                 className={`p-4 ${step.completed ? "bg-green-50" : "bg-white"}`}
               >
                 <div className="flex items-start gap-3">
                   <button
-                    onClick={() => toggleStepCompletion(step.id)}
+                    onClick={() => toggleStepCompletion(index)}
                     className="mt-0.5 flex-shrink-0"
                   >
                     {step.completed ? (
@@ -104,7 +139,7 @@ export function ChecklistPage() {
                         : "text-gray-900"
                         }`}
                     >
-                      Step {step.id}: {step.title}
+                      Step {index + 1}: {step.title}
                     </h4>
                     <p
                       className={`text-sm mt-1 ${step.completed ? "text-green-700" : "text-gray-600"
@@ -115,7 +150,7 @@ export function ChecklistPage() {
 
                     {!step.completed && (
                       <button
-                        onClick={() => handleAskAI(step.id)}
+                        onClick={() => handleAskAI(index)}
                         className="mt-2 flex items-center gap-2 text-blue-600 text-sm font-medium active:scale-95 transition-transform"
                       >
                         <HelpCircle className="w-4 h-4" />
@@ -127,6 +162,21 @@ export function ChecklistPage() {
               </div>
             ))}
           </div>
+
+          {progress === 100 && (
+            <div className="p-6 bg-gray-50 border-t border-gray-200">
+              <button
+                onClick={() => navigate("/")}
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <CheckCircle2 className="w-6 h-6" />
+                Complete the Repair
+              </button>
+              <p className="text-center text-gray-500 text-xs mt-3">
+                All steps validated. Click to finalize ticket.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

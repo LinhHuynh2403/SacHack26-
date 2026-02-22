@@ -33,17 +33,16 @@ export const fetchTicket = async (ticketId: string) => {
 };
 
 // 2. Sending a chat message to the copilot
-export const sendChatMessage = async (message: string, ticketId: string) => {
+export const sendChatMessage = async (message: string, ticket_id: string) => {
     try {
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            // main.py expects a JSON body with keys "message" and "ticket_id"
             body: JSON.stringify({
                 message: message,
-                ticket_id: ticketId
+                ticket_id: ticket_id
             }),
         });
 
@@ -52,10 +51,77 @@ export const sendChatMessage = async (message: string, ticketId: string) => {
         }
 
         const data = await response.json();
-        // Returns: { answer: "...", ticket_id: "..." }
         return data;
     } catch (error) {
         console.error("Error sending chat message:", error);
+        throw error;
+    }
+};
+
+// 3. Update ticket status
+export const updateTicketStatus = async (ticketId: string, status: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/status`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to update status: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error updating ticket status:", error);
+        throw error;
+    }
+};
+
+// 4. Fetch checklist
+export const fetchChecklist = async (ticketId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/checklist`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch checklist: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching checklist:", error);
+        throw error;
+    }
+};
+
+// 5. Update checklist item
+export const updateChecklistItem = async (ticketId: string, itemIndex: number, completed: boolean, notes?: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/checklist/${itemIndex}`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ completed, notes }),
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to update checklist item: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error updating checklist item:", error);
+        throw error;
+    }
+};
+
+// 6. Fetch chat history
+export const fetchChatHistory = async (ticketId: string) => {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/chat/history`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch chat history: ${response.statusText}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error("Error fetching chat history:", error);
         throw error;
     }
 };

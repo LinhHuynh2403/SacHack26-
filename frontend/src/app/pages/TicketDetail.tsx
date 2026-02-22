@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { telemetryData, manualSteps, Ticket } from "../data/mockData";
-import { fetchTickets } from "../api";
+import { Ticket } from "../types";
+import { fetchTicket, fetchChecklist } from "../api";
 import {
   ArrowLeft,
   TrendingDown,
@@ -12,42 +12,51 @@ import {
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
+// Temporary fallback telemetry until backend supports it
+const MOCK_TELEMETRY = [
+  { timestamp: "18:30", pressure: 3.2, temperature: 42, voltage: 232, current: 15.5 },
+  { timestamp: "18:40", pressure: 3.1, temperature: 45, voltage: 231, current: 15.6 },
+  { timestamp: "18:50", pressure: 2.8, temperature: 52, voltage: 230, current: 15.4 },
+  { timestamp: "19:00", pressure: 2.2, temperature: 68, voltage: 228, current: 15.8 },
+];
+
 export function TicketDetail() {
   const { ticketId } = useParams();
   const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const loadTicket = async () => {
+    const loadData = async () => {
+      if (!ticketId) return;
       try {
-        const data = await fetchTickets();
-        const alert = data.find((a: any) => a.ticket_id === ticketId);
-        if (alert) {
-          const mappedTicket: Ticket = {
-            id: alert.ticket_id,
-            stationId: alert.station_info.charger_id,
-            component: alert.prediction_details.failing_component,
-            priority: alert.urgency as any,
-            status: "assigned",
-            predictedFailure: alert.prediction_details.telemetry_context,
-            assignedTo: "Tech #4521",
-            timestamp: alert.timestamp,
-            location: alert.station_info.location,
-          };
-          setTicket(mappedTicket);
-        }
+        const alert = await fetchTicket(ticketId);
+        const mappedTicket: Ticket = {
+          id: alert.ticket_id,
+          stationId: alert.station_info.charger_id,
+          component: alert.prediction_details.failing_component,
+          priority: alert.urgency as any,
+          status: alert.status === 'completed' ? 'resolved' : 'assigned',
+          predictedFailure: alert.prediction_details.telemetry_context,
+          assignedTo: "Tech #4521",
+          timestamp: alert.timestamp,
+          location: alert.station_info.location,
+        };
+        setTicket(mappedTicket);
+
+        const checklistData = await fetchChecklist(ticketId);
+        setSteps(checklistData.checklist || []);
+
       } catch (error) {
         console.error("Failed to load ticket details", error);
       } finally {
         setIsLoading(false);
       }
     };
-    loadTicket();
+    loadData();
   }, [ticketId]);
 
-  // Keep telemetry mocked for now until backend supports it
-  const telemetry = telemetryData["1"] || [];
-  const steps = manualSteps["1"] || [];
+  const telemetry = MOCK_TELEMETRY;
 
   if (isLoading) {
     return <div className="p-8 text-center text-gray-500">Loading details...</div>;

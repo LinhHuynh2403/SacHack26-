@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { tickets as mockTickets, ChatMessage, manualSteps } from "../data/mockData";
-import { sendChatMessage, fetchTicket } from "../api";
+import { ChatMessage, Ticket } from "../types";
+import { sendChatMessage, fetchTicket, fetchChatHistory, fetchChecklist } from "../api";
 import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -9,7 +9,7 @@ export function ChatInterface() {
   const { ticketId } = useParams();
   const [searchParams] = useSearchParams();
   const stepId = searchParams.get("step");
-  const [ticket, setTicket] = useState<any>(null);
+  const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -24,66 +24,64 @@ export function ChatInterface() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch real ticket data from backend
+  // Fetch real ticket data and chat history from backend
   useEffect(() => {
-    async function getTicket() {
+    async function loadData() {
       if (!ticketId) return;
       try {
         const data = await fetchTicket(ticketId);
-        // Map backend fields to frontend format
-        const mappedTicket = {
+        const mappedTicket: Ticket = {
           id: data.ticket_id,
           stationId: data.station_info.charger_id,
           component: data.prediction_details.failing_component,
+          priority: data.urgency as any,
+          status: data.status as any,
+          predictedFailure: data.prediction_details.telemetry_context,
+          assignedTo: "Tech #4521",
+          timestamp: data.timestamp,
           location: data.station_info.location,
-          // ... add other fields if needed
         };
         setTicket(mappedTicket);
+
+        // Fetch history
+        const historyData = await fetchChatHistory(ticketId);
+        if (historyData.history && historyData.history.length > 0) {
+          const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
+            id: `history-${idx}`,
+            role: m.role === 'assistant' ? 'ai' : 'user',
+            content: m.content,
+            timestamp: m.timestamp,
+          }));
+          setMessages(mappedMessages);
+        } else {
+          // Initial AI greeting if no history
+          let greetingText = `Hi Tech, Data Pigeon predicted a ${mappedTicket.component} failure on ${mappedTicket.stationId}. Based on the manual, Step 1 is to locate the pressure valve behind Panel C. Are you ready to begin?`;
+
+          if (stepId) {
+            const checklistData = await fetchChecklist(ticketId);
+            const stepIndex = parseInt(stepId);
+            const currentStep = checklistData.checklist?.[stepIndex];
+            if (currentStep) {
+              greetingText = `I see you need help with Step ${stepIndex + 1}: ${currentStep.task}. \n\nCan you describe what issue you're encountering? You can also take a photo to show me the problem.`;
+            }
+          }
+
+          const greeting: ChatMessage = {
+            id: "1",
+            role: "ai",
+            content: greetingText,
+            timestamp: new Date().toISOString(),
+          };
+          setMessages([greeting]);
+        }
       } catch (error) {
-        console.error("Failed to fetch ticket, falling back to mock:", error);
-        const mock = mockTickets.find((t) => t.id === ticketId);
-        setTicket(mock);
+        console.error("Failed to fetch ticket or history:", error);
       } finally {
         setLoading(false);
       }
     }
-    getTicket();
-  }, [ticketId]);
-
-  useEffect(() => {
-    // Initial AI greeting
-    if (ticket) {
-      let greeting: ChatMessage;
-
-      if (stepId) {
-        const steps = manualSteps[ticketId || ""];
-        const currentStep = steps?.find((s) => s.id === parseInt(stepId));
-        if (currentStep) {
-          greeting = {
-            id: "1",
-            role: "ai",
-            content: `I see you need help with Step ${currentStep.id}: ${currentStep.title}. ${currentStep.description}\n\nCan you describe what issue you're encountering? You can also take a photo to show me the problem.`,
-            timestamp: new Date().toISOString(),
-          };
-        } else {
-          greeting = {
-            id: "1",
-            role: "ai",
-            content: `Hi Tech, Data Pigeon predicted a ${ticket.component} failure on ${ticket.stationId}. Based on the manual, Step 1 is to locate the pressure valve behind Panel C. Are you ready to begin?`,
-            timestamp: new Date().toISOString(),
-          };
-        }
-      } else {
-        greeting = {
-          id: "1",
-          role: "ai",
-          content: `Hi Tech, Data Pigeon predicted a ${ticket.component} failure on ${ticket.stationId}. Based on the manual, Step 1 is to locate the pressure valve behind Panel C. Are you ready to begin?`,
-          timestamp: new Date().toISOString(),
-        };
-      }
-      setMessages([greeting]);
-    }
-  }, [ticket, stepId, ticketId]);
+    loadData();
+  }, [ticketId, stepId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
