@@ -3,8 +3,9 @@ import { Link, useParams, useSearchParams } from "react-router";
 import { ChatMessage, Ticket, BackendTicket } from "../types";
 import { sendChatMessage, fetchTicket, fetchChatHistory, fetchChecklist } from "../api";
 import { mapBackendTicket } from "../mapper";
-import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image } from "lucide-react";
+import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
+import { ErrorState } from "../ErrorHandling/ErrorState";
 
 export function ChatInterface() {
   const { ticketId } = useParams();
@@ -25,59 +26,65 @@ export function ChatInterface() {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!ticketId) return;
+    // Clear messages immediately when step changes to give a "fresh chat" feel
+    setMessages([]);
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data: BackendTicket = await fetchTicket(ticketId);
+      const mappedTicket = mapBackendTicket(data);
+      setTicket(mappedTicket);
+
+      // Fetch history for this specific step
+      const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
+      const historyData = await fetchChatHistory(ticketId, stepIdx);
+
+      if (historyData.history && historyData.history.length > 0) {
+        const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
+          id: `history-${idx}`,
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+        }));
+        setMessages(mappedMessages);
+
+      } else {
+        // Initial AI greeting if no history
+        // Fetch the checklist to get the actual task name for this step
+        const checklistData = await fetchChecklist(ticketId);
+        const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
+
+        let greetingText = `Hi Tech! I'm your Data Pigeon Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
+
+        if (currentStep && stepIdx !== undefined) {
+          greetingText = `Hi Tech! I'm ready to help specifically with Step ${stepIdx + 1}: **${currentStep.task}**. Let me know if you need clarification or specific values from the manual.`;
+        }
+
+        setMessages([{
+          id: '1',
+          role: 'assistant',
+          content: greetingText,
+          timestamp: new Date().toISOString()
+        }]);
+      }
+    } catch (err: any) {
+      console.error("Failed to fetch ticket or history:", err);
+      setError("The AI Copilot is currently offline. Please check your connection to the Data Pigeon network.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch real ticket data and chat history from backend
   useEffect(() => {
-    async function loadData() {
-      if (!ticketId) return;
-      // Clear messages immediately when step changes to give a "fresh chat" feel
-      setMessages([]);
-      setLoading(true);
-
-      try {
-        const data: BackendTicket = await fetchTicket(ticketId);
-        const mappedTicket = mapBackendTicket(data);
-        setTicket(mappedTicket);
-
-        // Fetch history for this specific step
-        const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
-        const historyData = await fetchChatHistory(ticketId, stepIdx);
-
-        if (historyData.history && historyData.history.length > 0) {
-          const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
-            id: `history-${idx}`,
-            role: m.role,
-            content: m.content,
-            timestamp: m.timestamp,
-          }));
-          setMessages(mappedMessages);
-
-        } else {
-          // Initial AI greeting if no history
-          // Fetch the checklist to get the actual task name for this step
-          const checklistData = await fetchChecklist(ticketId);
-          const currentStep = (stepIdx !== undefined && checklistData.checklist) ? checklistData.checklist[stepIdx] : null;
-
-          let greetingText = `Hi Tech! I'm your Data Pigeon Field Tech Copilot. I'm ready to assist with the ${mappedTicket.component} repair on ${mappedTicket.stationId}.`;
-
-          if (currentStep && stepIdx !== undefined) {
-            greetingText = `Hi Tech! I'm ready to help specifically with Step ${stepIdx + 1}: **${currentStep.task}**. Let me know if you need clarification or specific values from the manual.`;
-          }
-
-          setMessages([{
-            id: '1',
-            role: 'assistant',
-            content: greetingText,
-            timestamp: new Date().toISOString()
-          }]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch ticket or history:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
   }, [ticketId, stepId]);
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -223,17 +230,35 @@ export function ChatInterface() {
     }
   };
 
-  if (loading) {
+  if (loading && messages.length === 0) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-600 font-medium">Connecting to AI Copilot...</p>
+      </div>
+    );
+  }
+
+  if (error && messages.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
+        <ErrorState
+          title="Voice of the Pigeon"
+          message={error}
+          onRetry={loadData}
+        />
       </div>
     );
   }
 
   if (!ticket) {
-    return <div>Ticket not found</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center text-gray-500">
+        Ticket not found
+      </div>
+    );
   }
+
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">

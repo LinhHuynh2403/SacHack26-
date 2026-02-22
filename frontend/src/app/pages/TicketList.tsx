@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTickets } from "../api";
 import { mapBackendTicket } from "../mapper";
+import { ErrorState } from "../ErrorHandling/ErrorState";
 import { AlertCircle, ChevronRight, Clock, MapPin, Wrench, CheckCircle, FileText, PlayCircle } from "lucide-react";
 
 export function TicketList() {
@@ -10,24 +11,30 @@ export function TicketList() {
   const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
   const [pastTickets, setPastTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadTickets = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await fetchTickets();
+      // Map backend alerts to the expected frontend Ticket interface
+      const allTickets: Ticket[] = data.map((alert: BackendTicket) => mapBackendTicket(alert));
+
+      setActiveTickets(allTickets.filter(t => t.status !== 'completed'));
+      setPastTickets(allTickets.filter(t => t.status === 'completed'));
+    } catch (err: any) {
+      console.error(err);
+      setError("We couldn't load your maintenance tickets. The server might be offline.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadTickets = async () => {
-      try {
-        const data = await fetchTickets();
-        // Map backend alerts to the expected frontend Ticket interface
-        const allTickets: Ticket[] = data.map((alert: BackendTicket) => mapBackendTicket(alert));
-
-        setActiveTickets(allTickets.filter(t => t.status !== 'completed'));
-        setPastTickets(allTickets.filter(t => t.status === 'completed'));
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadTickets();
   }, []);
+
 
 
   const priorityColors: Record<string, string> = {
@@ -39,7 +46,28 @@ export function TicketList() {
 
   const currentTickets = activeTab === "active" ? activeTickets : pastTickets;
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
+        <ErrorState
+          title="Dashboard Error"
+          message={error}
+          onRetry={loadTickets}
+        />
+      </div>
+    );
+  }
+
   return (
+
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">

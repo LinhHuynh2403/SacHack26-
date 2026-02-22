@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router";
 import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist } from "../api";
 import { mapBackendTicket } from "../mapper";
+import { ErrorState } from "../ErrorHandling/ErrorState";
 import {
   ArrowLeft,
   TrendingDown,
@@ -19,31 +20,49 @@ export function TicketDetail() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!ticketId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const alert: BackendTicket = await fetchTicket(ticketId);
+      setTicket(mapBackendTicket(alert));
+
+      const checklistData = await fetchChecklist(ticketId);
+      setSteps(checklistData?.checklist || []);
+
+    } catch (err: any) {
+      console.error("Failed to load ticket details", err);
+      setError("Unable to retrieve ticket details. The connection to the maintenance server was interrupted.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!ticketId) return;
-      try {
-        const alert: BackendTicket = await fetchTicket(ticketId);
-        setTicket(mapBackendTicket(alert));
-
-        const checklistData = await fetchChecklist(ticketId);
-        setSteps(checklistData?.checklist || []);
-
-      } catch (error) {
-        console.error("Failed to load ticket details", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     loadData();
   }, [ticketId]);
+
 
 
   const telemetry = ticket?.telemetryHistory || [];
 
   if (isLoading) {
     return <div className="p-8 text-center text-gray-500">Loading details...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12">
+        <ErrorState
+          title="Ticket Load Error"
+          message={error}
+          onRetry={loadData}
+        />
+      </div>
+    );
   }
 
   if (!ticket) {

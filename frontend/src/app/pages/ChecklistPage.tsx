@@ -8,7 +8,9 @@ import {
   CheckCircle2,
   Circle,
   HelpCircle,
+  RefreshCw,
 } from "lucide-react";
+import { ErrorState } from "../ErrorHandling/ErrorState";
 
 export function ChecklistPage() {
   const { ticketId } = useParams();
@@ -16,36 +18,41 @@ export function ChecklistPage() {
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [steps, setSteps] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = async () => {
+    if (!ticketId) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const alert: BackendTicket = await fetchTicket(ticketId);
+      setTicket(mapBackendTicket(alert));
+
+      const checklistData = await fetchChecklist(ticketId);
+      if (checklistData && checklistData.checklist) {
+        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
+          id: idx, // Use index for backend
+          title: s.task,
+          description: s.task,
+          completed: s.completed,
+          notes: s.notes
+        })));
+      } else {
+        setSteps([]);
+      }
+    } catch (err: any) {
+      console.error("Failed to load checklist", err);
+      setError("We couldn't generate your repair checklist. This usually happens if the AI service is disconnected.");
+      setSteps([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      if (!ticketId) return;
-      try {
-        const alert: BackendTicket = await fetchTicket(ticketId);
-        setTicket(mapBackendTicket(alert));
-
-        const checklistData = await fetchChecklist(ticketId);
-        if (checklistData && checklistData.checklist) {
-          setSteps(checklistData.checklist.map((s: any, idx: number) => ({
-            id: idx, // Use index for backend
-            title: s.task,
-            description: s.task,
-            completed: s.completed,
-            notes: s.notes
-          })));
-        } else {
-          setSteps([]);
-        }
-      } catch (error) {
-        console.error("Failed to load checklist", error);
-        setSteps([]);
-      } finally {
-
-        setIsLoading(false);
-      }
-    };
     loadData();
   }, [ticketId]);
+
 
   const handleCompleteRepair = async () => {
     if (!ticketId) return;
@@ -58,8 +65,35 @@ export function ChecklistPage() {
   };
 
 
-  if (isLoading) return <div className="p-8 text-center text-gray-500">Loading checklist...</div>;
-  if (!ticket) return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <p className="text-gray-600 font-medium">Generating your repair checklist...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center">
+        <ErrorState
+          title="Checklist Error"
+          message={error}
+          onRetry={loadData}
+        />
+      </div>
+    );
+  }
+
+  if (!ticket) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 pt-12 text-center flex flex-col items-center justify-center text-gray-500">
+        Ticket not found
+      </div>
+    );
+  }
+
 
   const toggleStepCompletion = async (index: number) => {
     const step = steps[index];
