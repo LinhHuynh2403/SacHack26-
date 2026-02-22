@@ -34,7 +34,7 @@ Critical infrastructure like EV chargers face constant reliability challenges le
 - **AI/LLM:** Google Gemini (`gemini-3-flash-preview`) via LangChain
 - **RAG Pipeline:** LangChain + ChromaDB vector store + Google Embeddings (`gemini-embedding-001`)
 - **Validation:** Pydantic v2
-- **State Management:** In-memory (dict-based, resets on server restart)
+- **State Management:** mySQL db
 
 ### Frontend (Deployed on Vercel)
 - **Framework:** React 19 + TypeScript
@@ -44,7 +44,6 @@ Critical infrastructure like EV chargers face constant reliability challenges le
 - **Charts:** Recharts (telemetry visualization)
 - **Animations:** Motion (Framer Motion)
 - **Icons:** Lucide React
-- **PWA:** Configured as a Progressive Web App for mobile field use with offline-capable service worker
 
 ## API Endpoints
 
