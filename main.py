@@ -1,5 +1,6 @@
 import os
 import json
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,14 +10,19 @@ from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
 load_dotenv()
 
-app = FastAPI(title="Data Pigeon Copilot API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_rag()
+    yield
+
+app = FastAPI(title="Data Pigeon Copilot API", lifespan=lifespan)
 
 # Enable CORS for the frontend app
 app.add_middleware(
@@ -91,10 +97,6 @@ def init_rag():
     rag_chain = create_retrieval_chain(retriever, question_answer_chain)
     
     print("RAG Pipeline initialized and ready!")
-
-@app.on_event("startup")
-async def startup_event():
-    init_rag()
 
 # ---------- API ROUTES ----------
 
