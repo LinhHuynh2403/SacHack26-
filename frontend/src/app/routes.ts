@@ -4,6 +4,7 @@ import { TicketDetail } from "./pages/TicketDetail";
 import { PastTicketDetail } from "./pages/PastTicketDetail";
 import { ChecklistPage } from "./pages/ChecklistPage";
 import { ChatInterface } from "./pages/ChatInterface";
+import { NotFoundPage } from "./pages/NotFoundPage";
 
 export const router = createBrowserRouter([
   {
@@ -25,5 +26,9 @@ export const router = createBrowserRouter([
   {
     path: "/chat/:ticketId",
     Component: ChatInterface,
+  },
+  {
+    path: "*",
+    Component: NotFoundPage,
   },
 ]);
