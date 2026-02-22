@@ -11,11 +11,11 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png'],
+      includeAssets: ['icon-192.png', 'icon-512.png'],
       manifest: {
-        name: 'Field Tech Copilot',
-        short_name: 'FT Copilot',
-        description: 'EV Charger Maintenance and Repair Copilot',
+        name: 'fixity',
+        short_name: 'fixity',
+        description: 'AI-powered EV charger maintenance assistant for field technicians',
         theme_color: '#2563eb', // Matches blue-600
         background_color: '#f9fafb', // Matches gray-50
         display: 'standalone',

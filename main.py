@@ -304,7 +304,7 @@ async def lifespan(app: FastAPI):
     init_rag()
     yield
 
-app = FastAPI(title="Field Tech Copilot API", lifespan=lifespan)
+app = FastAPI(title="fixity API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

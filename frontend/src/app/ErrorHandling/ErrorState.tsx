@@ -1,5 +1,6 @@
 import { AlertCircle, RefreshCw, Home } from "lucide-react";
 import { Link } from "react-router";
+import { FixityLogo } from "../components/FixityLogo";
 
 interface ErrorStateProps {
     title?: string;
@@ -16,6 +17,7 @@ export function ErrorState({
 }: ErrorStateProps) {
     return (
         <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-2xl border border-gray-200 shadow-sm my-4 mx-2">
+            <FixityLogo size="sm" className="mb-3 opacity-60" />
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4">
                 <AlertCircle className="w-8 h-8 text-red-600" />
             </div>
@@ -26,7 +28,7 @@ export function ErrorState({
                 {onRetry && (
                     <button
                         onClick={onRetry}
-                        className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl transition-all active:scale-95"
+                        className="flex items-center justify-center gap-2 bg-[var(--color-brand-primary)] hover:bg-[#0e5f9e] text-white font-bold py-3 px-6 rounded-xl transition-all active:scale-95"
                     >
                         <RefreshCw className="w-5 h-5" />
                         Try Again

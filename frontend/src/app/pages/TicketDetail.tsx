@@ -7,6 +7,7 @@ import { ErrorState } from "../ErrorHandling/ErrorState";
 import { ArrowLeft, AlertTriangle, TrendingUp, TrendingDown } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { SwipeToStart } from "../components/SwipeToStart";
+import { FixityLogo } from "../components/FixityLogo";
 
 // Reusable component to render the beautiful gradient charts 4 times cleanly
 const TrendChart = ({ title, dataKey, color, data }: { title: string, dataKey: string, color: string, data: any[] }) => (
@@ -97,8 +98,11 @@ export function TicketDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+    <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
+        <div className="flex flex-col items-center gap-4">
+          <FixityLogo size="lg" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-brand-primary)]"></div>
+        </div>
       </div>
     );
   }
@@ -115,7 +119,7 @@ export function TicketDetail() {
   const latestData = telemetry[telemetry.length - 1];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-28">
+    <div className="min-h-screen bg-[#F8FAFC] relative pb-28">
       {/* Dynamic Header Background */}
       <div className="absolute top-0 left-0 w-full h-[184px] bg-[#FFF28B] z-0"></div>
 

@@ -5,6 +5,7 @@ import { fetchTicket, updateTicketStatus } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ArrowLeft, Sparkles, Check, RefreshCw } from "lucide-react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { FixityLogo } from "../components/FixityLogo";
 import { SwipeToEnd } from "../components/SwipeToEnd";
 import { useChecklist } from "../context/ChecklistContext";
 
@@ -62,7 +63,8 @@ export function ChecklistPage() {
   if (isLoading && steps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC]">
-        <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+        <FixityLogo size="lg" className="mb-4" />
+        <RefreshCw className="w-10 h-10 text-[var(--color-brand-primary)] animate-spin mb-4" />
         <p className="text-gray-600 font-medium">Generating your repair checklist...</p>
       </div>
     );

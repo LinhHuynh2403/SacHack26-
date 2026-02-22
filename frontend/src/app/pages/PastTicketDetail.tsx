@@ -4,6 +4,7 @@ import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { FixityLogo } from "../components/FixityLogo";
 import { ArrowLeft, Clipboard, CheckCircle2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -46,8 +47,9 @@ export function PastTicketDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F8FAFC]">
+        <FixityLogo size="lg" className="mb-4" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-brand-primary)]"></div>
       </div>
     );
   }

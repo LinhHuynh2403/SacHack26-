@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
 @theme {
+    /* Brand */
+    --color-brand-accent: #EED300;
+    --color-brand-primary: #1271BD;
+
     /* Backgrounds */
     --color-bg-app: #F8FAFC;
     --color-bg-card: #F8FAFC;

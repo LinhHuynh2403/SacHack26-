@@ -1,4 +1,4 @@
-# Field Tech Copilot
+# fixity
 
 An AI-powered mobile assistant for EV maintenance technicians, built for the **SacHack 2026 AI Incident Response Hackathon**.
 
@@ -6,15 +6,15 @@ An AI-powered mobile assistant for EV maintenance technicians, built for the **S
 
 Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. Predictive analytics can identify these failures *before* they cause downtime, but there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
 
-The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
+**fixity** bridges this gap. It is an intelligent support agent designed specifically to take predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
 
 ## How it Works
 
 1. **Prioritized Ticket List:** The app surfaces predictive telemetry alerts sorted by urgency (critical first) and failure probability. Technicians see exactly what needs attention and in what order.
 2. **Context View:** Clicking a ticket reveals the telemetry trace -- the exact sensor anomalies that led to the prediction -- displayed as interactive line charts (temperature, pressure trends), so the tech has full context before arriving on-site.
 3. **AI-Generated Checklist:** A step-by-step repair checklist is dynamically generated via RAG based on the charger model, error code, and telemetry context. The checklist is cached and tracks completion state.
-4. **AI Support Chat:** While working through the checklist, the tech can chat with the AI copilot. The chat maintains conversation history per ticket and includes full ticket context for multi-turn troubleshooting. Supports **voice input** (Web Speech API) and **camera/photo input** for hands-free field use.
-5. **Guided Troubleshooting (RAG):** The AI is equipped with 24 proprietary repair manuals covering ABB, Tritium, ChargePoint, and Tesla chargers. It retrieves specific procedures, LOTO safety protocols, and diagnostic steps in real-time.
+4. **AI Support Chat:** While working through the checklist, the tech can chat with fixity. The chat maintains conversation history per ticket and includes full ticket context for multi-turn troubleshooting. Supports **voice input** (Web Speech API) and **camera/photo input** for hands-free field use.
+5. **Guided Troubleshooting (RAG):** fixity is equipped with 24 proprietary repair manuals covering ABB, Tritium, ChargePoint, and Tesla chargers. It retrieves specific procedures, LOTO safety protocols, and diagnostic steps in real-time.
 6. **Ticket Completion:** When all checklist items are marked done, the ticket auto-transitions to `completed`. Unchecking an item reverts it to `in_progress`.
 
 ## Business Impact

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { FixityLogo } from "../components/FixityLogo";
 import { useChecklist } from "../context/ChecklistContext";
 
 // Extended interface to handle local feedback state
@@ -225,6 +226,7 @@ export function ChatInterface() {
   if (loading && messages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#D9EDFD] to-[#FFF28B]/80">
+        <FixityLogo size="lg" className="mb-4" />
         <RefreshCw className="w-10 h-10 text-gray-800 animate-spin mb-4" />
         <p className="text-gray-800 font-medium">Connecting to fixity...</p>
       </div>
@@ -254,9 +256,7 @@ export function ChatInterface() {
         </button>
 
         {/* Fixity Logo styling */}
-        <div className="text-[20px] font-bold text-black tracking-tight flex items-center">
-          fixit<span className="text-[#EED300] ml-[1px]">y</span>
-        </div>
+        <FixityLogo size="md" />
 
         <div className="w-8" /> {/* Spacer for centering */}
       </div>

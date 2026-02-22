@@ -4,6 +4,7 @@ import { Ticket, BackendTicket } from "../types";
 import { fetchTickets, resetAllData } from "../api";
 import { mapBackendTicket } from "../mapper";
 import { ErrorState } from "../ErrorHandling/ErrorState";
+import { FixityLogo } from "../components/FixityLogo";
 import { Wrench, Clipboard } from "lucide-react";
 
 export function TicketList() {
@@ -107,8 +108,9 @@ export function TicketList() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-[#F8FAFC]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col items-center justify-center h-screen bg-[#F8FAFC]">
+        <FixityLogo size="lg" className="mb-4" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-brand-primary)]"></div>
       </div>
     );
   }
@@ -125,6 +127,7 @@ export function TicketList() {
     <div className="min-h-screen bg-[#F8FAFC] pb-6">
       {/* Header matching Figma exactly */}
       <div className="px-5 pt-16 pb-6 relative">
+        <FixityLogo size="sm" className="mb-2 opacity-70" />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-[20px] font-normal text-[#1E1E1E] leading-tight">Technician #3560</h1>
