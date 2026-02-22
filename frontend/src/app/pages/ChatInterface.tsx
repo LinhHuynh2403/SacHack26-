@@ -246,7 +246,7 @@ export function ChatInterface() {
   const showFeedback = messages.length >= 3 && !isTyping && lastMessage?.role === "assistant";
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-[#D9EDFD] from-[7%] to-[#FFF28B]/80 font-['Roboto'] relative">
+    <div className="flex flex-col h-screen bg-gradient-to-b from-[#D9EDFD] from-[7%] to-[#FFF28B]/80 relative">
 
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-14 pb-4 sticky top-0 z-10">

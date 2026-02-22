@@ -64,7 +64,7 @@ export function PastTicketDetail() {
   const latestData = telemetry[telemetry.length - 1];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] relative pb-12">
+    <div className="min-h-screen bg-[#F8FAFC] relative pb-12">
       {/* Dynamic Header Background (Yellow) */}
       <div className="absolute top-0 left-0 w-full h-[184px] bg-[#FFF28B] z-0"></div>
 

@@ -58,11 +58,11 @@ export function TicketList() {
     switch (status) {
       case "completed":
         // Matches the new #00CB8B green from Figma
-        return <span className="bg-[#00CB8B] text-white px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Completed</span>;
+        return <span className="bg-[#00CB8B] text-white px-3 py-1 rounded-full text-[15px] font-normal">Completed</span>;
       case "in_progress":
-        return <span className="bg-[#FF383C] text-white px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">In Process</span>;
+        return <span className="bg-[#FF383C] text-white px-3 py-1 rounded-full text-[15px] font-normal">In Process</span>;
       default: // predicted_failure, offline
-        return <span className="bg-[#cce7ff] text-[#5A5A5A] px-3 py-1 rounded-full text-[15px] font-normal font-['SF Pro']">Not started</span>;
+        return <span className="bg-[#cce7ff] text-[#5A5A5A] px-3 py-1 rounded-full text-[15px] font-normal">Not started</span>;
     }
   };
 
@@ -83,13 +83,13 @@ export function TicketList() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-['Roboto'] pb-6">
+    <div className="min-h-screen bg-[#F8FAFC] pb-6">
       {/* Header matching Figma exactly */}
       <div className="px-5 pt-16 pb-6 relative">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-normal text-[#1E1E1E] font-['Inter'] leading-tight">Technician #3560</h1>
-            <p className="text-[14px] text-[#1E1E1E] mt-1 font-['Inter']">Davis, CA</p>
+            <h1 className="text-[20px] font-normal text-[#1E1E1E] leading-tight">Technician #3560</h1>
+            <p className="text-[14px] text-[#1E1E1E] mt-1">Davis, CA</p>
           </div>
           <img
             src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces"
