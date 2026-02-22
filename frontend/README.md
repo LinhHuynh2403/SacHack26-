@@ -10,7 +10,7 @@
 
 The frontend for **fixity**, an AI-powered mobile assistant for EV charger maintenance technicians. Built as a Progressive Web App (PWA) for hands-free field use.
 
-UI originally designed in [Figma](https://www.figma.com/design/cqk5aRMklpyMTTSRBkJBo6/EV-Charger-Maintenance-App).
+UI originally designed in [Figma](https://www.figma.com/proto/drgJPJ79hTLwCqNURF6s5J/Sac-Hacks-26?node-id=17-24&p=f&m=dev&scaling=contain&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=17%3A24&show-proto-sidebar=1).
 
 ## Tech Stack
 
