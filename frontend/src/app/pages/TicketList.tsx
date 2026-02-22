@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router";
-import { Ticket } from "../types";
+import { Ticket, BackendTicket } from "../types";
 import { fetchTickets } from "../api";
+import { mapBackendTicket } from "../mapper";
 import { AlertCircle, ChevronRight, Clock, MapPin, Wrench, CheckCircle, FileText, PlayCircle } from "lucide-react";
 
 export function TicketList() {
@@ -15,25 +16,10 @@ export function TicketList() {
       try {
         const data = await fetchTickets();
         // Map backend alerts to the expected frontend Ticket interface
-        const allTickets: Ticket[] = data.map((alert: any) => ({
-          id: alert.ticket_id,
-          stationId: alert.station_info.charger_id,
-          component: alert.prediction_details.failing_component,
-          priority: alert.urgency as any,
-          status: alert.status === 'completed' ? 'resolved' :
-            alert.status === 'in_progress' ? 'in-progress' :
-              alert.status === 'offline' ? 'offline' : 'assigned',
-          predictedFailure: alert.prediction_details.telemetry_context,
-          assignedTo: "Tech #4521",
-          timestamp: alert.timestamp,
-          location: alert.station_info.location,
-          completedDate: alert.status === 'completed' ? alert.timestamp : undefined,
-          aiNotes: alert.ai_notes || [],
-          checklistProgress: alert.checklist_progress
-        }));
+        const allTickets: Ticket[] = data.map((alert: BackendTicket) => mapBackendTicket(alert));
 
-        setActiveTickets(allTickets.filter(t => t.status !== 'resolved'));
-        setPastTickets(allTickets.filter(t => t.status === 'resolved'));
+        setActiveTickets(allTickets.filter(t => t.status !== 'completed'));
+        setPastTickets(allTickets.filter(t => t.status === 'completed'));
       } catch (error) {
         console.error(error);
       } finally {
@@ -42,6 +28,7 @@ export function TicketList() {
     };
     loadTickets();
   }, []);
+
 
   const priorityColors: Record<string, string> = {
     critical: "#ef4444", // red-500
@@ -164,16 +151,16 @@ export function TicketList() {
                           >
                             {ticket.priority.toUpperCase()}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${ticket.status === 'in-progress'
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${ticket.status === 'in_progress'
                             ? 'text-blue-700 bg-blue-100'
                             : 'text-gray-600 bg-gray-100'
                             }`}>
-                            {ticket.status === 'in-progress' ? 'IN PROGRESS' : 'ASSIGNED'}
+                            {ticket.status === 'in_progress' ? 'IN PROGRESS' : 'ASSIGNED'}
                           </span>
                         </>
                       ) : (
                         <span className="text-xs px-2 py-0.5 rounded-full text-green-700 bg-green-100 font-bold">
-                          RESOLVED
+                          COMPLETED
                         </span>
                       )}
                     </div>
@@ -198,7 +185,7 @@ export function TicketList() {
               </div>
 
               {/* Progress Bar - Only for In-Progress Active Tickets */}
-              {activeTab === "active" && ticket.status === "in-progress" && ticket.checklistProgress && (
+              {activeTab === "active" && ticket.status === "in_progress" && ticket.checklistProgress && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 mb-4">
                   <div className="flex justify-between items-center mb-2">
                     <div className="flex items-center gap-2 text-blue-700">

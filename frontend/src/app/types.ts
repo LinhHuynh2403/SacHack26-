@@ -1,11 +1,14 @@
 // frontend/src/app/types.ts
 
+export type TicketStatus = 'predicted_failure' | 'in_progress' | 'completed' | 'offline';
+export type TicketPriority = 'critical' | 'high' | 'medium' | 'low';
+
 export interface Ticket {
     id: string;
     stationId: string;
     component: string;
-    priority: 'critical' | 'high' | 'medium' | 'low';
-    status: 'assigned' | 'in-progress' | 'resolved' | 'offline';
+    priority: TicketPriority;
+    status: TicketStatus;
     predictedFailure: string;
     assignedTo: string;
     timestamp: string;
@@ -35,11 +38,43 @@ export interface Ticket {
 
 export interface ChatMessage {
     id: string;
-    role: 'user' | 'ai';
+    role: 'user' | 'assistant';
     content: string;
     timestamp: string;
     image?: string;
     checklist_item_index?: number;
+}
+
+export interface StationInfo {
+    charger_id: string;
+    location: string;
+    charger_type: string;
+    model: string;
+}
+
+export interface PredictionDetails {
+    failing_component: string;
+    expected_error_code: string;
+    probability_score: number;
+    time_to_failure_hours: number;
+    telemetry_context: string;
+}
+
+export interface BackendTicket {
+    ticket_id: string;
+    timestamp: string;
+    status: TicketStatus;
+    urgency: TicketPriority;
+    station_info: StationInfo;
+    prediction_details: PredictionDetails;
+    ai_notes?: string[];
+    checklist_progress?: {
+        total: number;
+        completed: number;
+        percentage: number;
+    };
+    telemetry_snapshots?: Array<any>;
+    telemetry_history?: Array<any>;
 }
 
 export interface ChecklistItem {

@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router";
-import { Ticket } from "../types";
-import { fetchTicket, fetchChecklist, updateChecklistItem } from "../api";
+import { Ticket, BackendTicket } from "../types";
+import { fetchTicket, fetchChecklist, updateChecklistItem, updateTicketStatus } from "../api";
+import { mapBackendTicket } from "../mapper";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -20,36 +21,42 @@ export function ChecklistPage() {
     const loadData = async () => {
       if (!ticketId) return;
       try {
-        const alert = await fetchTicket(ticketId);
-        const mappedTicket: Ticket = {
-          id: alert.ticket_id,
-          stationId: alert.station_info.charger_id,
-          component: alert.prediction_details.failing_component,
-          priority: alert.urgency as any,
-          status: alert.status as any,
-          predictedFailure: alert.prediction_details.telemetry_context,
-          assignedTo: "Tech #4521",
-          timestamp: alert.timestamp,
-          location: alert.station_info.location,
-        };
-        setTicket(mappedTicket);
+        const alert: BackendTicket = await fetchTicket(ticketId);
+        setTicket(mapBackendTicket(alert));
 
         const checklistData = await fetchChecklist(ticketId);
-        setSteps(checklistData.checklist.map((s: any, idx: number) => ({
-          id: idx, // Use index for backend
-          title: s.task,
-          description: s.task,
-          completed: s.completed,
-          notes: s.notes
-        })));
+        if (checklistData && checklistData.checklist) {
+          setSteps(checklistData.checklist.map((s: any, idx: number) => ({
+            id: idx, // Use index for backend
+            title: s.task,
+            description: s.task,
+            completed: s.completed,
+            notes: s.notes
+          })));
+        } else {
+          setSteps([]);
+        }
       } catch (error) {
         console.error("Failed to load checklist", error);
+        setSteps([]);
       } finally {
+
         setIsLoading(false);
       }
     };
     loadData();
   }, [ticketId]);
+
+  const handleCompleteRepair = async () => {
+    if (!ticketId) return;
+    try {
+      await updateTicketStatus(ticketId, 'completed');
+      navigate("/");
+    } catch (error) {
+      console.error("Failed to complete repair", error);
+    }
+  };
+
 
   if (isLoading) return <div className="p-8 text-center text-gray-500">Loading checklist...</div>;
   if (!ticket) return <div className="p-8 text-center text-gray-500">Ticket not found</div>;
@@ -166,7 +173,7 @@ export function ChecklistPage() {
           {progress === 100 && (
             <div className="p-6 bg-gray-50 border-t border-gray-200">
               <button
-                onClick={() => navigate("/")}
+                onClick={handleCompleteRepair}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <CheckCircle2 className="w-6 h-6" />

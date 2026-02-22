@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
-import { Ticket } from "../types";
+import { Ticket, BackendTicket } from "../types";
 import { fetchTicket, fetchChecklist } from "../api";
+import { mapBackendTicket } from "../mapper";
 import {
   ArrowLeft,
   TrendingDown,
@@ -23,37 +24,11 @@ export function TicketDetail() {
     const loadData = async () => {
       if (!ticketId) return;
       try {
-        const alert = await fetchTicket(ticketId);
-        const mappedTicket: Ticket = {
-          id: alert.ticket_id,
-          stationId: alert.station_info.charger_id,
-          component: alert.prediction_details.failing_component,
-          priority: alert.urgency as any,
-          status: alert.status === "completed" ? "resolved" :
-            alert.status === "in_progress" ? "in-progress" : "assigned",
-          predictedFailure: alert.prediction_details.telemetry_context,
-          assignedTo: "Tech #4521",
-          timestamp: alert.timestamp,
-          location: alert.station_info.location,
-          telemetryHistory: (alert.telemetry_history || alert.telemetry_snapshots || [])
-            .filter((s: any) =>
-              s.temperature_c !== null ||
-              s.connector_temp_c !== null ||
-              s.pressure_bar !== null ||
-              s.voltage_dc !== null
-            )
-            .map((s: any) => ({
-              timestamp: s.timestamp.includes('T') ? new Date(s.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : s.timestamp,
-              temperature: s.temperature ?? s.temperature_c ?? s.connector_temp_c ?? 0,
-              pressure: s.pressure ?? s.pressure_bar ?? 0,
-              voltage: s.voltage ?? s.voltage_dc ?? s.voltage_ac ?? 0,
-              current: s.current ?? s.current_a ?? 0
-            }))
-        };
-        setTicket(mappedTicket);
+        const alert: BackendTicket = await fetchTicket(ticketId);
+        setTicket(mapBackendTicket(alert));
 
         const checklistData = await fetchChecklist(ticketId);
-        setSteps(checklistData.checklist || []);
+        setSteps(checklistData?.checklist || []);
 
       } catch (error) {
         console.error("Failed to load ticket details", error);
@@ -63,6 +38,7 @@ export function TicketDetail() {
     };
     loadData();
   }, [ticketId]);
+
 
   const telemetry = ticket?.telemetryHistory || [];
 

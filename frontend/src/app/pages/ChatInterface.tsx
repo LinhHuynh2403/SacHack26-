@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ChatMessage, Ticket } from "../types";
+import { ChatMessage, Ticket, BackendTicket } from "../types";
 import { sendChatMessage, fetchTicket, fetchChatHistory, fetchChecklist } from "../api";
+import { mapBackendTicket } from "../mapper";
 import { ArrowLeft, Send, Mic, MicOff, Sparkles, Camera, X, Image } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -33,18 +34,8 @@ export function ChatInterface() {
       setLoading(true);
 
       try {
-        const data = await fetchTicket(ticketId);
-        const mappedTicket: Ticket = {
-          id: data.ticket_id,
-          stationId: data.station_info.charger_id,
-          component: data.prediction_details.failing_component,
-          priority: data.urgency as any,
-          status: data.status as any,
-          predictedFailure: data.prediction_details.telemetry_context,
-          assignedTo: "Tech #4521",
-          timestamp: data.timestamp,
-          location: data.station_info.location,
-        };
+        const data: BackendTicket = await fetchTicket(ticketId);
+        const mappedTicket = mapBackendTicket(data);
         setTicket(mappedTicket);
 
         // Fetch history for this specific step
@@ -54,11 +45,12 @@ export function ChatInterface() {
         if (historyData.history && historyData.history.length > 0) {
           const mappedMessages: ChatMessage[] = historyData.history.map((m: any, idx: number) => ({
             id: `history-${idx}`,
-            role: m.role === 'assistant' ? 'ai' : 'user',
+            role: m.role,
             content: m.content,
             timestamp: m.timestamp,
           }));
           setMessages(mappedMessages);
+
         } else {
           // Initial AI greeting if no history
           // Fetch the checklist to get the actual task name for this step
@@ -73,7 +65,7 @@ export function ChatInterface() {
 
           setMessages([{
             id: '1',
-            role: 'ai',
+            role: 'assistant',
             content: greetingText,
             timestamp: new Date().toISOString()
           }]);
@@ -212,7 +204,7 @@ export function ChatInterface() {
 
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        role: "ai",
+        role: "assistant",
         content: response.answer,
         timestamp: new Date().toISOString(),
       };
@@ -221,7 +213,7 @@ export function ChatInterface() {
       console.error(error);
       const errorResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        role: "ai",
+        role: "assistant",
         content: "Sorry, I am having trouble connecting to the Data Pigeon servers right now.",
         timestamp: new Date().toISOString(),
       };
@@ -279,7 +271,7 @@ export function ChatInterface() {
             transition={{ duration: 0.3 }}
             className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
           >
-            {message.role === "ai" && (
+            {message.role === "assistant" && (
               <div className="flex gap-2 max-w-[85%]">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                   <Sparkles className="w-4 h-4 text-white" />
