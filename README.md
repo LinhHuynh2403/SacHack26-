@@ -2,25 +2,113 @@
 
 An AI-powered mobile assistant for EV maintenance technicians, built for the **Data Pigeon AI Incident Response Hackathon**.
 
-## 🚀 The Mission
+## The Mission
 Critical infrastructure like EV chargers face constant reliability challenges leading to expensive downtime. While Data Pigeon provides the predictive layer to identify these failures *before* they cause downtime, there is still a massive gap in how **human technicians** get those insights and execute repairs in the field.
 
 The **Field Tech Copilot** bridges this gap. It is an intelligent support agent designed specifically to take Data Pigeon's predictive maintenance alerts and guide technicians through an ultra-fast, accurately-triaged repair process on-site.
 
-## 🛠️ How it Works
-1. **The Predictive Warning:** The app receives simulated predictive telemetry alerts from the Data Pigeon engine (e.g., "85% probability of Cooling Fan Failure on ABB Terra 54 in next 12 hours").
-2. **The Context:** Technicians see the exact sensor data anomalies that led to the prediction *before* they arrive at the site.
-3. **The AI Diagnostic Chat:** Upon arrival, the technician interacts with a specialized AI Support Agent. 
-4. **Intelligent Retrieval (RAG):** The AI Agent is equipped with a custom Knowledge Base containing proprietary repair manuals and diagnostic codes for specific charger models (ABB, Tritium, ChargePoint, Tesla). It guides the tech step-by-step through the replacement, LOTO safety protocols, and software reset commands.
+## How it Works
 
-## 💡 Business Impact
-*   **Maximize Uptime:** Pre-emptive repairs happen before a driver encounters a broken charger, preserving customer trust.
-*   **Reduce Operational Costs:** By guiding techs efficiently and diagnosing the exact part needed *before* the truck rolls, we minimize time-on-site and eliminate costly "return trips."
+1. **Prioritized Ticket List:** The app surfaces predictive telemetry alerts sorted by urgency (critical first) and failure probability. Technicians see exactly what needs attention and in what order.
+2. **Context View:** Clicking a ticket reveals the telemetry trace -- the exact sensor anomalies that led to the prediction -- so the tech has full context before arriving on-site.
+3. **AI-Generated Checklist:** A step-by-step repair checklist is dynamically generated via RAG based on the charger model, error code, and telemetry context. The checklist is cached and tracks completion state.
+4. **AI Support Chat:** While working through the checklist, the tech can chat with the AI copilot. The chat maintains conversation history per ticket and includes full ticket context for multi-turn troubleshooting.
+5. **Guided Troubleshooting (RAG):** The AI is equipped with 24 proprietary repair manuals covering ABB, Tritium, ChargePoint, and Tesla chargers. It retrieves specific procedures, LOTO safety protocols, and diagnostic steps in real-time.
+6. **Ticket Completion:** When all checklist items are marked done, the ticket auto-transitions to `completed`. Unchecking an item reverts it to `in_progress`.
 
-## 📂 The Project Structure
-*   `dummy_data/telemetry_alerts.json`: Synthetic dataset simulating incoming predictive alerts from Data Pigeon's core system.
-*   `dummy_data/manuals/`: A repository of 24 synthesized repair manuals for various chargers. This serves as the local Knowledge Base for the AI's Retrieval-Augmented Generation (RAG) pipeline.
-*   `generate_manuals.py`: The script used to generate realistic testing data for the hackathon constraints.
+## Business Impact
+- **Maximize Uptime:** Pre-emptive repairs happen before a driver encounters a broken charger, preserving customer trust.
+- **Reduce Operational Costs:** By guiding techs efficiently and diagnosing the exact part needed *before* the truck rolls, we minimize time-on-site and eliminate costly "return trips."
 
-## 🏃‍♂️ Getting Started
-*(Instructions on how to run the frontend and AI backend will go here)*
+## Tech Stack
+- **Backend:** Python / FastAPI
+- **AI/LLM:** Google Gemini (via LangChain)
+- **RAG Pipeline:** LangChain + ChromaDB vector store + Google Embeddings (`gemini-embedding-001`)
+- **State Management:** In-memory (dict-based, resets on server restart)
+
+## API Endpoints
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/tickets` | List all tickets, sorted by urgency. Optional `?status=` filter. |
+| `GET` | `/api/tickets/{ticket_id}` | Get a single ticket with current status. |
+| `PATCH` | `/api/tickets/{ticket_id}/status` | Update ticket status (`predicted_failure`, `in_progress`, `completed`, `offline`). |
+| `GET` | `/api/tickets/{ticket_id}/checklist` | Get or generate the repair checklist (cached after first call). |
+| `PATCH` | `/api/tickets/{ticket_id}/checklist/{item_index}` | Update a checklist item's completion and notes. Auto-completes ticket when all done. |
+| `POST` | `/api/chat` | Chat with the AI copilot (with ticket context and conversation memory). |
+| `GET` | `/api/tickets/{ticket_id}/chat/history` | Retrieve full chat history for a ticket. |
+
+Interactive API docs available at `/docs` when the server is running.
+
+## Project Structure
+```
+main.py                          # FastAPI backend (all endpoints + RAG pipeline)
+generate_manuals.py              # Script to generate the 24 dummy repair manuals
+dummy_data/
+  telemetry_alerts.json          # 5 simulated predictive failure alerts
+  manuals/                       # 24 synthesized repair manuals (RAG knowledge base)
+chroma_db/                       # Persisted ChromaDB vector store
+requirements.txt                 # Python dependencies
+render.yaml                      # Render.com deployment config
+```
+
+## Getting Started
+
+### Prerequisites
+- Python 3.10+
+- A Google API key with Gemini access
+
+### Setup
+
+```bash
+# Clone the repo
+git clone https://github.com/Hellfrosted/SacHack26-.git
+cd SacHack26-
+
+# Create and activate virtual environment
+python -m venv .venv
+# Windows
+.venv\Scripts\activate
+# macOS/Linux
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Set up environment variables
+# Create a .env file with:
+# GOOGLE_API_KEY=your_google_api_key_here
+# GEMINI_MODEL=gemini-3-flash-preview  (optional, this is the default)
+
+# Run the server
+python main.py
+```
+
+The API will be available at `http://localhost:8000`. Visit `http://localhost:8000/docs` for the interactive Swagger UI.
+
+### Quick Test
+
+```bash
+# Get prioritized ticket list
+curl http://localhost:8000/api/tickets
+
+# Get a single ticket
+curl http://localhost:8000/api/tickets/DP-INC-9001
+
+# Generate a checklist (requires GOOGLE_API_KEY)
+curl http://localhost:8000/api/tickets/DP-INC-9001/checklist
+
+# Mark checklist item 0 as completed
+curl -X PATCH http://localhost:8000/api/tickets/DP-INC-9001/checklist/0 \
+  -H "Content-Type: application/json" \
+  -d '{"completed": true}'
+
+# Chat with the AI copilot
+curl -X POST http://localhost:8000/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "The coolant valve is stuck, what should I do?", "ticket_id": "DP-INC-9001"}'
+```
+
+## Deployment
+
+Configured for [Render.com](https://render.com) via `render.yaml`. Set the `GOOGLE_API_KEY` environment variable in your Render dashboard.
