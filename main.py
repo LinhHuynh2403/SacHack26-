@@ -20,6 +20,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.documents import Document
+from langchain_core.messages import HumanMessage, SystemMessage
 
 load_dotenv()
 
@@ -646,16 +647,6 @@ def chat_with_copilot(request: ChatRequest):
                 role_label = "Technician" if msg["role"] == "user" else "Copilot"
                 history_str += f"{role_label}: {msg['content']}\n"
 
-        # Image context
-        image_context = ""
-        if request.image_base64:
-            image_context = (
-                "\n[The technician has attached a photo of the issue. "
-                "They are showing you what they see on-site. "
-                "Please acknowledge the photo and provide visual diagnosis guidance "
-                "based on the repair context above.]\n"
-            )
-
         # Step completion detection instruction
         step_completion_instruction = ""
         if request.step_idx is not None and request.ticket_id in ticket_checklists:
@@ -668,40 +659,40 @@ def chat_with_copilot(request: ChatRequest):
                 "Do NOT include the marker if they are just asking questions or need more guidance.\n"
             ).format(step_idx=request.step_idx)
 
-        # ── Fix 1: Assemble the prompt with clean separation ──
-        # System message gets: manual context + ticket context + telemetry + checklist + history
-        # Human message gets: ONLY the technician's question
-        chat_prompt = ChatPromptTemplate.from_messages([
-            ("system",
-             "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
-             "You are currently helping a technician on-site with a broken EV charger.\n"
-             "Use the following retrieved context from the proprietary repair manuals to answer "
-             "the technician's questions.\n"
-             "If the answer is not in the manuals, say that you don't have that specific data, "
-             "but provide general electrical mechanic advice.\n"
-             "Always emphasize LOTO (Lockout/Tagout) and high-voltage safety.\n"
-             "Keep answers concise and field-practical.\n\n"
-             "Repair Manual Context:\n{manual_context}\n\n"
-             "{ticket_context}\n"
-             "{telemetry_trends}\n"
-             "{checklist_context}\n"
-             "{history_str}\n"
-             "{image_context}\n"
-             "{step_completion_instruction}\n"),
-            ("human", "{question}"),
-        ])
+        # ── Assemble the system prompt ──
+        system_text = (
+            "You are fixity, an expert AI assistant for EV repair technicians.\n"
+            "You are currently helping a technician on-site with a broken EV charger.\n"
+            "Use the following retrieved context from the proprietary repair manuals to answer "
+            "the technician's questions.\n"
+            "If the answer is not in the manuals, say that you don't have that specific data, "
+            "but provide general electrical mechanic advice.\n"
+            "Always emphasize LOTO (Lockout/Tagout) and high-voltage safety.\n"
+            "Keep answers concise and field-practical.\n\n"
+            f"Repair Manual Context:\n{manual_context}\n\n"
+            f"{ticket_context}\n"
+            f"{telemetry_trends}\n"
+            f"{checklist_context}\n"
+            f"{history_str}\n"
+            f"{step_completion_instruction}\n"
+        )
 
-        chain = chat_prompt | llm
-        response = chain.invoke({
-            "manual_context": manual_context,
-            "ticket_context": ticket_context,
-            "telemetry_trends": telemetry_trends,
-            "checklist_context": checklist_context,
-            "history_str": history_str,
-            "image_context": image_context,
-            "step_completion_instruction": step_completion_instruction,
-            "question": request.message,
-        })
+        # ── Build messages: multimodal when image is attached ──
+        system_msg = SystemMessage(content=system_text)
+
+        if request.image_base64:
+            # Multimodal HumanMessage: text + image sent directly to Gemini
+            human_msg = HumanMessage(content=[
+                {"type": "text", "text": request.message or "What do you see in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{request.image_base64}"},
+                },
+            ])
+        else:
+            human_msg = HumanMessage(content=request.message)
+
+        response = llm.invoke([system_msg, human_msg])
 
         now = datetime.now(timezone.utc).isoformat()
         answer_text = response.content
