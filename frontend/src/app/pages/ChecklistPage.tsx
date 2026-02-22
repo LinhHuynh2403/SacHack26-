@@ -106,10 +106,19 @@ export function ChecklistPage() {
       {/* Yellow Header matches Figma height & color */}
       <div className="w-full bg-[#FFF28B] pt-14 pb-12 px-5 shadow-sm relative z-0">
         <div className="flex items-center justify-between mb-2">
-          {/* UPDATE HERE: Change navigate(-1) to navigate explicit ticket URL */}
           <button onClick={() => navigate(`/ticket/${ticketId}`)} className="active:scale-95 transition-transform">
             <ArrowLeft className="w-6 h-6 text-black" />
           </button>
+        </div>
+        <div className="mb-4">
+          <p className="text-[10px] font-bold text-[#49454F] tracking-wide mb-2 uppercase">
+            Maintenance Issue
+          </p>
+          <div className="flex gap-2 items-center tracking-tight">
+            <span className="text-[22px] font-bold text-[#0088FF]">
+              {ticket.stationId}
+            </span>
+          </div>
         </div>
       </div>
 
