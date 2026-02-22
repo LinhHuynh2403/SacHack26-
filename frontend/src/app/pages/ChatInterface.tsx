@@ -152,6 +152,13 @@ export function ChatInterface() {
     setCapturedImage(null);
   };
 
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -162,6 +169,7 @@ export function ChatInterface() {
   };
 
   const handleSend = async () => {
+    if (isTyping) return;
     if (!input.trim() && !capturedImage) return;
 
     const userMessage: FixityMessage = {
@@ -182,7 +190,7 @@ export function ChatInterface() {
     try {
       const finalMessage = hasImage ? `[Image attached]: ${messageText}` : messageText;
       const stepIdx = stepId !== null ? parseInt(stepId) : undefined;
-      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx);
+      const response = await sendChatMessage(finalMessage, ticketId || "UNKNOWN", stepIdx, hasImage ? userMessage.image : undefined);
 
       const aiResponse: FixityMessage = {
         id: (Date.now() + 1).toString(),

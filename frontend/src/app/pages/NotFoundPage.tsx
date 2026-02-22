@@ -8,7 +8,7 @@ export function NotFoundPage() {
                 <AlertCircle className="w-10 h-10 text-blue-600" />
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">404</h1>
-            <p className="text-xl text-gray-600 mb-8 text-max-w-md">
+            <p className="text-xl text-gray-600 mb-8 max-w-md">
                 Oops! The page you're looking for doesn't exist or has been moved.
             </p>
             <Link
