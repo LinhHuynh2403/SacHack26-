@@ -1,134 +1,98 @@
-// frontend/src/app/api.ts
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
-// You can swap this out with your production URL once deployed
-const API_BASE_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
-    : 'https://sachack26-backend.onrender.com'.replace(/\/$/, "");
-
-// 1. Fetching all the tickets
-export const fetchTickets = async () => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch tickets: ${response.statusText}`);
-        }
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Error fetching tickets:", error);
-        throw error;
+// Fetch all tickets
+export async function fetchTickets() {
+    const response = await fetch(`${API_BASE_URL}/tickets`);
+    if (!response.ok) {
+        throw new Error('Failed to fetch tickets');
     }
-};
+    return response.json();
+}
 
-// 1.5 Fetching a single ticket
-export const fetchTicket = async (ticketId: string) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch ticket: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error fetching ticket:", error);
-        throw error;
+// Fetch a single ticket by ID
+export async function fetchTicket(ticketId: string) {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}`);
+    if (!response.ok) {
+        throw new Error(`Ticket with ID ${ticketId} not found`);
     }
-};
+    return response.json();
+}
 
-// 2. Sending a chat message to the copilot
-export const sendChatMessage = async (message: string, ticket_id: string, step_index?: number) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/chat`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                message: message,
-                ticket_id: ticket_id,
-                step_index: step_index
-            }),
-        });
+// Update ticket status
+export async function updateTicketStatus(ticketId: string, status: string) {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/status`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+    });
 
-        if (!response.ok) {
-            throw new Error(`Chat API failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error("Error sending chat message:", error);
-        throw error;
+    if (!response.ok) {
+        throw new Error(`Failed to update ticket status for ${ticketId}`);
     }
-};
+    return response.json();
+}
 
-// 3. Update ticket status
-export const updateTicketStatus = async (ticketId: string, status: string) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/status`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ status }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update status: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error updating ticket status:", error);
-        throw error;
+// Fetch (and trigger RAG generation of) the checklist
+export async function fetchChecklist(ticketId: string) {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/checklist`);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch checklist for ticket ${ticketId}`);
     }
-};
+    // Returns { ticket_id: string, checklist: [...] }
+    return response.json();
+}
 
-// 4. Fetch checklist
-export const fetchChecklist = async (ticketId: string) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/checklist`);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch checklist: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error fetching checklist:", error);
-        throw error;
-    }
-};
+// Update a specific checklist item
+export async function updateChecklistItem(ticketId: string, index: number, completed: boolean) {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/checklist/${index}`, {
+        method: "PATCH",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        // Matches ChecklistUpdateRequest Pydantic model
+        body: JSON.stringify({ completed }),
+    });
 
-// 5. Update checklist item
-export const updateChecklistItem = async (ticketId: string, itemIndex: number, completed: boolean, notes?: string) => {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/checklist/${itemIndex}`, {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ completed, notes }),
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to update checklist item: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error updating checklist item:", error);
-        throw error;
+    if (!response.ok) {
+        throw new Error(`Failed to update checklist item ${index}`);
     }
-};
+    return response.json();
+}
 
-// 6. Fetch chat history
-export const fetchChatHistory = async (ticketId: string, stepIdx?: number) => {
-    try {
-        const url = new URL(`${API_BASE_URL}/api/tickets/${ticketId}/chat/history`);
-        if (stepIdx !== undefined) {
-            url.searchParams.append("step_index", stepIdx.toString());
-        }
-        const response = await fetch(url.toString());
-        if (!response.ok) {
-            throw new Error(`Failed to fetch chat history: ${response.statusText}`);
-        }
-        return await response.json();
-    } catch (error) {
-        console.error("Error fetching chat history:", error);
-        throw error;
+// Send a chat message to the RAG Copilot
+export async function sendChatMessage(message: string, ticketId: string, stepIdx?: number) {
+    // We append the step context to the message if it exists, since the backend 
+    // ChatRequest currently expects just `message` and `ticket_id`
+    const finalMessage = stepIdx !== undefined
+        ? `[Regarding Checklist Step ${stepIdx + 1}]: ${message}`
+        : message;
+
+    const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        // Matches ChatRequest Pydantic model
+        body: JSON.stringify({
+            message: finalMessage,
+            ticket_id: ticketId
+        }),
+    });
+
+    if (!response.ok) {
+        throw new Error('Failed to send chat message');
     }
-};
+    return response.json();
+}
+
+// Fetch the conversation history for a specific ticket
+export async function fetchChatHistory(ticketId: string, stepIdx?: number) {
+    const response = await fetch(`${API_BASE_URL}/tickets/${ticketId}/chat/history`);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch chat history for ticket ${ticketId}`);
+    }
+    // Returns { ticket_id: string, history: [...], message_count: int }
+    return response.json();
+}
