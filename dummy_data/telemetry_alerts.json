@@ -16,7 +16,18 @@
       "probability_score": 0.92,
       "time_to_failure_hours": 12.5,
       "telemetry_context": "Coolant pump RPM has dropped by 18% over the last 48 hours while stator temp has increased by 14 degrees Celsius during peak charging sessions."
-    }
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-02-19T13:30:00Z", "temperature_c": 45.2, "pressure_bar": 2.82, "pump_rpm": 3210, "voltage_dc": 402, "current_a": 124 },
+      { "timestamp": "2026-02-19T19:30:00Z", "temperature_c": 46.8, "pressure_bar": 2.75, "pump_rpm": 3140, "voltage_dc": 401, "current_a": 125 },
+      { "timestamp": "2026-02-20T01:30:00Z", "temperature_c": 47.1, "pressure_bar": 2.68, "pump_rpm": 3080, "voltage_dc": 400, "current_a": 125 },
+      { "timestamp": "2026-02-20T07:30:00Z", "temperature_c": 49.5, "pressure_bar": 2.51, "pump_rpm": 2950, "voltage_dc": 399, "current_a": 126 },
+      { "timestamp": "2026-02-20T13:30:00Z", "temperature_c": 52.3, "pressure_bar": 2.34, "pump_rpm": 2870, "voltage_dc": 398, "current_a": 127 },
+      { "timestamp": "2026-02-20T19:30:00Z", "temperature_c": 55.1, "pressure_bar": 2.10, "pump_rpm": 2780, "voltage_dc": 397, "current_a": 129 },
+      { "timestamp": "2026-02-21T01:30:00Z", "temperature_c": 57.8, "pressure_bar": 1.88, "pump_rpm": 2710, "voltage_dc": 396, "current_a": 131 },
+      { "timestamp": "2026-02-21T07:30:00Z", "temperature_c": 59.4, "pressure_bar": 1.55, "pump_rpm": 2650, "voltage_dc": 395, "current_a": 133 },
+      { "timestamp": "2026-02-21T13:30:00Z", "temperature_c": 62.1, "pressure_bar": 1.22, "pump_rpm": 2630, "voltage_dc": 394, "current_a": 135 }
+    ]
   },
   {
     "ticket_id": "DP-INC-9002",
@@ -35,7 +46,18 @@
       "probability_score": 0.85,
       "time_to_failure_hours": 48.0,
       "telemetry_context": "RFID authentication latency has spiked from 150ms to >2000ms. 3 session initiation timeouts in the last 12 hours."
-    }
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-02-19T13:45:00Z", "rfid_latency_ms": 148, "session_timeouts": 0, "signal_strength_dbm": -72, "voltage_ac": 241, "current_a": 29.8 },
+      { "timestamp": "2026-02-19T19:45:00Z", "rfid_latency_ms": 165, "session_timeouts": 0, "signal_strength_dbm": -73, "voltage_ac": 240, "current_a": 29.9 },
+      { "timestamp": "2026-02-20T01:45:00Z", "rfid_latency_ms": 310, "session_timeouts": 0, "signal_strength_dbm": -74, "voltage_ac": 239, "current_a": 30.0 },
+      { "timestamp": "2026-02-20T07:45:00Z", "rfid_latency_ms": 580, "session_timeouts": 1, "signal_strength_dbm": -74, "voltage_ac": 240, "current_a": 29.8 },
+      { "timestamp": "2026-02-20T13:45:00Z", "rfid_latency_ms": 920, "session_timeouts": 1, "signal_strength_dbm": -75, "voltage_ac": 241, "current_a": 29.7 },
+      { "timestamp": "2026-02-20T19:45:00Z", "rfid_latency_ms": 1340, "session_timeouts": 2, "signal_strength_dbm": -76, "voltage_ac": 240, "current_a": 29.9 },
+      { "timestamp": "2026-02-21T01:45:00Z", "rfid_latency_ms": 1680, "session_timeouts": 2, "signal_strength_dbm": -76, "voltage_ac": 239, "current_a": 30.0 },
+      { "timestamp": "2026-02-21T07:45:00Z", "rfid_latency_ms": 1950, "session_timeouts": 3, "signal_strength_dbm": -77, "voltage_ac": 240, "current_a": 29.8 },
+      { "timestamp": "2026-02-21T13:45:00Z", "rfid_latency_ms": 2140, "session_timeouts": 3, "signal_strength_dbm": -78, "voltage_ac": 240, "current_a": 29.9 }
+    ]
   },
   {
     "ticket_id": "DP-INC-9003",
@@ -54,7 +76,18 @@
       "probability_score": 0.98,
       "time_to_failure_hours": 2.0,
       "telemetry_context": "Thermistor on NACS cable handle is reporting erratic non-linear spikes up to 90C. Potential thermal runaway or sensor short circuit."
-    }
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-02-21T10:00:00Z", "connector_temp_c": 55.0, "coolant_inlet_c": 28.4, "coolant_outlet_c": 39.1, "voltage_dc": 405, "current_a": 480 },
+      { "timestamp": "2026-02-21T10:30:00Z", "connector_temp_c": 58.2, "coolant_inlet_c": 28.5, "coolant_outlet_c": 40.3, "voltage_dc": 404, "current_a": 475 },
+      { "timestamp": "2026-02-21T11:00:00Z", "connector_temp_c": 72.4, "coolant_inlet_c": 28.6, "coolant_outlet_c": 40.8, "voltage_dc": 403, "current_a": 460 },
+      { "timestamp": "2026-02-21T11:30:00Z", "connector_temp_c": 61.3, "coolant_inlet_c": 28.7, "coolant_outlet_c": 41.2, "voltage_dc": 405, "current_a": 478 },
+      { "timestamp": "2026-02-21T12:00:00Z", "connector_temp_c": 85.7, "coolant_inlet_c": 28.8, "coolant_outlet_c": 41.5, "voltage_dc": 402, "current_a": 420 },
+      { "timestamp": "2026-02-21T12:30:00Z", "connector_temp_c": 64.1, "coolant_inlet_c": 29.0, "coolant_outlet_c": 42.0, "voltage_dc": 404, "current_a": 468 },
+      { "timestamp": "2026-02-21T13:00:00Z", "connector_temp_c": 90.2, "coolant_inlet_c": 29.1, "coolant_outlet_c": 42.3, "voltage_dc": 401, "current_a": 380 },
+      { "timestamp": "2026-02-21T13:30:00Z", "connector_temp_c": 78.5, "coolant_inlet_c": 29.2, "coolant_outlet_c": 42.8, "voltage_dc": 403, "current_a": 445 },
+      { "timestamp": "2026-02-21T14:00:00Z", "connector_temp_c": 91.8, "coolant_inlet_c": 29.3, "coolant_outlet_c": 43.1, "voltage_dc": 400, "current_a": 350 }
+    ]
   },
   {
     "ticket_id": "DP-INC-9004",
@@ -73,7 +106,17 @@
       "probability_score": 0.88,
       "time_to_failure_hours": 72.0,
       "telemetry_context": "Isolation monitor reading has gradually decreased from >500kOhm to 120kOhm over 2 weeks. Insulation degradation detected on DC bus."
-    }
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-02-07T14:15:00Z", "isolation_kohm": 485, "voltage_dc": 401, "current_a": 118, "temperature_c": 42.0, "coolant_flow_lpm": 6.8 },
+      { "timestamp": "2026-02-09T14:15:00Z", "isolation_kohm": 440, "voltage_dc": 400, "current_a": 119, "temperature_c": 42.5, "coolant_flow_lpm": 6.7 },
+      { "timestamp": "2026-02-11T14:15:00Z", "isolation_kohm": 390, "voltage_dc": 400, "current_a": 119, "temperature_c": 43.0, "coolant_flow_lpm": 6.6 },
+      { "timestamp": "2026-02-13T14:15:00Z", "isolation_kohm": 335, "voltage_dc": 399, "current_a": 120, "temperature_c": 43.8, "coolant_flow_lpm": 6.5 },
+      { "timestamp": "2026-02-15T14:15:00Z", "isolation_kohm": 280, "voltage_dc": 398, "current_a": 120, "temperature_c": 44.2, "coolant_flow_lpm": 6.4 },
+      { "timestamp": "2026-02-17T14:15:00Z", "isolation_kohm": 220, "voltage_dc": 397, "current_a": 121, "temperature_c": 45.0, "coolant_flow_lpm": 6.3 },
+      { "timestamp": "2026-02-19T14:15:00Z", "isolation_kohm": 175, "voltage_dc": 396, "current_a": 121, "temperature_c": 45.5, "coolant_flow_lpm": 6.2 },
+      { "timestamp": "2026-02-21T14:15:00Z", "isolation_kohm": 120, "voltage_dc": 395, "current_a": 122, "temperature_c": 46.1, "coolant_flow_lpm": 6.0 }
+    ]
   },
   {
     "ticket_id": "DP-INC-9005",
@@ -92,6 +135,43 @@
       "probability_score": 1.0,
       "time_to_failure_hours": 0,
       "telemetry_context": "Unit completely dropped off the cellular network at 13:10Z. Last known state indicated a Nayax offline error."
-    }
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-02-21T10:30:00Z", "signal_strength_dbm": -78, "heartbeat_latency_ms": 420, "voltage_dc": 401, "current_a": 122, "temperature_c": 44.0 },
+      { "timestamp": "2026-02-21T11:00:00Z", "signal_strength_dbm": -82, "heartbeat_latency_ms": 890, "voltage_dc": 400, "current_a": 123, "temperature_c": 44.5 },
+      { "timestamp": "2026-02-21T11:30:00Z", "signal_strength_dbm": -85, "heartbeat_latency_ms": 1450, "voltage_dc": 400, "current_a": 123, "temperature_c": 44.8 },
+      { "timestamp": "2026-02-21T12:00:00Z", "signal_strength_dbm": -89, "heartbeat_latency_ms": 3200, "voltage_dc": 401, "current_a": 122, "temperature_c": 45.0 },
+      { "timestamp": "2026-02-21T12:30:00Z", "signal_strength_dbm": -92, "heartbeat_latency_ms": 8500, "voltage_dc": 400, "current_a": 123, "temperature_c": 45.2 },
+      { "timestamp": "2026-02-21T13:00:00Z", "signal_strength_dbm": -95, "heartbeat_latency_ms": 28000, "voltage_dc": 399, "current_a": 123, "temperature_c": 45.5 },
+      { "timestamp": "2026-02-21T13:10:00Z", "signal_strength_dbm": null, "heartbeat_latency_ms": null, "voltage_dc": null, "current_a": null, "temperature_c": null }
+    ]
+  },
+  {
+    "ticket_id": "DP-INC-9006",
+    "timestamp": "2026-02-21T15:00:00Z",
+    "status": "predicted_failure",
+    "urgency": "low",
+    "station_info": {
+      "charger_id": "CP-118",
+      "location": "Riverside Mall Garage, Level 2",
+      "charger_type": "ChargePoint_CT4000",
+      "model": "ChargePoint CT4000 Series (Level 2)"
+    },
+    "prediction_details": {
+      "failing_component": "Screen",
+      "expected_error_code": "CP-ERR-LCD",
+      "probability_score": 0.72,
+      "time_to_failure_hours": 168.0,
+      "telemetry_context": "LCD backlight brightness has degraded 40% over the past month. Display still functional but 5 user complaints logged. Capacitive touch response intermittent on lower third of screen."
+    },
+    "telemetry_snapshots": [
+      { "timestamp": "2026-01-21T15:00:00Z", "backlight_pct": 98, "touch_failures_daily": 0, "voltage_ac": 240, "current_a": 30.0, "temperature_c": 22.0 },
+      { "timestamp": "2026-01-28T15:00:00Z", "backlight_pct": 91, "touch_failures_daily": 0, "voltage_ac": 241, "current_a": 29.9, "temperature_c": 23.0 },
+      { "timestamp": "2026-02-04T15:00:00Z", "backlight_pct": 82, "touch_failures_daily": 1, "voltage_ac": 240, "current_a": 30.0, "temperature_c": 22.5 },
+      { "timestamp": "2026-02-11T15:00:00Z", "backlight_pct": 73, "touch_failures_daily": 2, "voltage_ac": 240, "current_a": 29.8, "temperature_c": 23.0 },
+      { "timestamp": "2026-02-14T15:00:00Z", "backlight_pct": 68, "touch_failures_daily": 3, "voltage_ac": 241, "current_a": 29.9, "temperature_c": 22.0 },
+      { "timestamp": "2026-02-18T15:00:00Z", "backlight_pct": 62, "touch_failures_daily": 5, "voltage_ac": 240, "current_a": 30.0, "temperature_c": 23.5 },
+      { "timestamp": "2026-02-21T15:00:00Z", "backlight_pct": 58, "touch_failures_daily": 7, "voltage_ac": 240, "current_a": 29.8, "temperature_c": 22.5 }
+    ]
   }
 ]
