@@ -169,7 +169,7 @@ def init_rag():
     llm = ChatGoogleGenerativeAI(model=GEMINI_MODEL, temperature=0.1)
 
     system_prompt = (
-        "You are the Data Pigeon Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
+        "You are the Field Tech Copilot, an expert AI assistant for EV repair technicians.\n"
         "You are currently helping a technician on-site with a broken EV charger.\n"
         "Use the following retrieved context from the proprietary repair manuals to answer the technician's questions.\n"
         "If the answer is not in the manuals, say that you don't have that specific data, but provide general electrical mechanic advice.\n"
@@ -197,7 +197,7 @@ async def lifespan(app: FastAPI):
     init_rag()
     yield
 
-app = FastAPI(title="Data Pigeon Copilot API", lifespan=lifespan)
+app = FastAPI(title="Field Tech Copilot API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -217,7 +217,7 @@ app.add_middleware(
 @app.get("/api/tickets")
 def get_tickets(status: Optional[str] = Query(None, description="Filter by status")):
     """
-    Returns the simulated predictive alerts from Data Pigeon.
+    Returns the simulated predictive alerts.
     Sorted by urgency (critical first) and probability score.
     Optionally filter by status (e.g., ?status=completed).
     """

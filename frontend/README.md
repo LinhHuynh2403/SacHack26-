@@ -1,6 +1,6 @@
-# Data Pigeon Field Tech Copilot - Frontend
+# Field Tech Copilot - Frontend
 
-The frontend for the **Data Pigeon Field Tech Copilot**, an AI-powered mobile assistant for EV charger maintenance technicians. Built as a Progressive Web App (PWA) for hands-free field use.
+The frontend for the **Field Tech Copilot**, an AI-powered mobile assistant for EV charger maintenance technicians. Built as a Progressive Web App (PWA) for hands-free field use.
 
 UI originally designed in [Figma](https://www.figma.com/design/cqk5aRMklpyMTTSRBkJBo6/EV-Charger-Maintenance-App).
 
