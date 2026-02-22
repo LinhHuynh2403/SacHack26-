@@ -1,7 +1,9 @@
 // frontend/src/app/api.ts
 
 // You can swap this out with your production URL once deployed
-const API_BASE_URL = 'https://sachack26-backend.onrender.com';
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:8000'
+    : 'https://sachack26-backend.onrender.com'.replace(/\/$/, "");
 
 // 1. Fetching all the tickets
 export const fetchTickets = async () => {
@@ -33,7 +35,7 @@ export const fetchTicket = async (ticketId: string) => {
 };
 
 // 2. Sending a chat message to the copilot
-export const sendChatMessage = async (message: string, ticket_id: string) => {
+export const sendChatMessage = async (message: string, ticket_id: string, step_index?: number) => {
     try {
         const response = await fetch(`${API_BASE_URL}/api/chat`, {
             method: "POST",
@@ -42,7 +44,8 @@ export const sendChatMessage = async (message: string, ticket_id: string) => {
             },
             body: JSON.stringify({
                 message: message,
-                ticket_id: ticket_id
+                ticket_id: ticket_id,
+                step_index: step_index
             }),
         });
 
@@ -113,9 +116,13 @@ export const updateChecklistItem = async (ticketId: string, itemIndex: number, c
 };
 
 // 6. Fetch chat history
-export const fetchChatHistory = async (ticketId: string) => {
+export const fetchChatHistory = async (ticketId: string, stepIdx?: number) => {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/tickets/${ticketId}/chat/history`);
+        const url = new URL(`${API_BASE_URL}/api/tickets/${ticketId}/chat/history`);
+        if (stepIdx !== undefined) {
+            url.searchParams.append("step_index", stepIdx.toString());
+        }
+        const response = await fetch(url.toString());
         if (!response.ok) {
             throw new Error(`Failed to fetch chat history: ${response.statusText}`);
         }
